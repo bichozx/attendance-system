@@ -1,0 +1,724 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// generator client {
+//   provider     = "prisma-client"
+//   output       = "../src/generated/prisma"
+//   moduleFormat = "cjs"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+// }
+
+// =====================================================================
+// Sistema de Control de Asistencia y Turnos — schema inicial (v0.1)
+// Multi-tenant: base de datos compartida, cada tabla de negocio lleva companyId.
+// Fechas/horas: siempre UTC (timestamptz). workDate/hireDate usan @db.Date.
+// Dinero: Decimal(14,2). Coordenadas y distancias: Float (double precision).
+// =====================================================================
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =====================================================================
+// ENUMS
+// =====================================================================
+
+enum CompanyStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+  TERMINATED
+}
+
+enum DocumentType {
+  CC // Cédula de ciudadanía
+  CE // Cédula de extranjería
+  TI // Tarjeta de identidad
+  PPT // Permiso por protección temporal
+  PASSPORT
+  OTHER
+}
+
+enum ContractType {
+  INDEFINITE // Término indefinido
+  FIXED_TERM // Término fijo
+  WORK_OR_LABOR // Obra o labor
+  APPRENTICESHIP // Aprendizaje
+  SERVICES // Prestación de servicios
+}
+
+enum SchedulePeriodStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+enum ShiftAssignmentStatus {
+  ASSIGNED
+  CANCELLED
+}
+
+enum ShiftChangeType {
+  REASSIGNMENT
+  SWAP
+  TIME_CHANGE
+  CANCELLATION
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PENDING // Turno asignado, aún sin entrada
+  IN_PROGRESS // Entrada registrada, falta salida
+  COMPLETED // Entrada y salida registradas
+  INCOMPLETE // Falta alguna marcación al cierre
+  ABSENT // Sin marcaciones
+}
+
+enum AttendanceEventType {
+  CLOCK_IN
+  CLOCK_OUT
+  MANUAL_ADJUSTMENT
+}
+
+enum AttendanceEventResult {
+  ACCEPTED
+  REJECTED
+}
+
+enum AttendanceEventSource {
+  MOBILE_APP
+  OFFLINE_SYNC
+  ADMIN_PANEL
+}
+
+enum IncidentType {
+  SICK_LEAVE // Incapacidad
+  PERMISSION // Permiso
+  ABSENCE // Ausencia
+  LATE_ARRIVAL // Llegada tarde
+  EARLY_DEPARTURE // Salida anticipada
+  OVERTIME // Hora extra
+  MISSED_CLOCK // Olvido de marcación
+  SHIFT_CHANGE // Cambio de turno
+  GPS_APP_ISSUE // Problema con GPS/app
+  OTHER
+}
+
+enum NotificationType {
+  SHIFT_REMINDER
+  SHIFT_STARTED
+  CLOCK_OUT_REMINDER
+  MISSING_CLOCK_IN
+  MISSING_CLOCK_OUT
+  SHIFT_CHANGED
+  SCHEDULE_PUBLISHED
+  INCIDENT_RESOLVED
+  ADMIN_ANNOUNCEMENT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+// =====================================================================
+// TENANT
+// =====================================================================
+
+model Company {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  name      String
+  legalName String?
+  taxId     String? // NIT
+  slug      String        @unique
+  country   String        @default("CO") @db.Char(2)
+  timezone  String        @default("America/Bogota")
+  currency  String        @default("COP") @db.Char(3)
+  status    CompanyStatus @default(TRIAL)
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime?     @db.Timestamptz(3)
+
+  memberships      CompanyMembership[]
+  roles            Role[]
+  positions        Position[]
+  employees        Employee[]
+  contracts        EmploymentContract[]
+  stores           Store[]
+  geofences        Geofence[]
+  schedulePeriods  SchedulePeriod[]
+  shifts           Shift[]
+  shiftAssignments ShiftAssignment[]
+  shiftChanges     ShiftChange[]
+  attendances      Attendance[]
+  attendanceEvents AttendanceEvent[]
+  incidents        Incident[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+
+  @@unique([country, taxId])
+  @@map("companies")
+}
+
+// =====================================================================
+// IDENTIDAD Y ACCESO
+// =====================================================================
+
+// Identidad global de login. Una persona puede pertenecer a varias empresas.
+model User {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  email           String     @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  phone           String?
+  status          UserStatus @default(ACTIVE)
+  isPlatformAdmin Boolean    @default(false) // Superadministrador de la plataforma
+  lastLoginAt     DateTime?  @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
+
+  memberships   CompanyMembership[]
+  employees     Employee[]
+  sessions      Session[]
+  deviceTokens  DeviceToken[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// Refresh tokens (se guarda solo el hash). Permite revocar sesiones.
+model Session {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @db.Uuid
+  companyId        String?   @db.Uuid // Empresa activa en esta sesión
+  refreshTokenHash String    @unique
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime  @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// companyId null = rol plantilla del sistema (EMPLOYEE, ADMIN...) copiable por empresa.
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  companyId   String?  @db.Uuid
+  code        String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  company     Company?            @relation(fields: [companyId], references: [id])
+  permissions RolePermission[]
+  memberships CompanyMembership[]
+
+  @@unique([companyId, code])
+  @@map("roles")
+}
+
+// Catálogo global, ej: "attendance.clock", "shifts.publish", "incidents.approve".
+model Permission {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  code        String  @unique
+  module      String
+  description String?
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// Relación usuario ↔ empresa con su rol dentro de esa empresa.
+model CompanyMembership {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  companyId String           @db.Uuid
+  userId    String           @db.Uuid
+  roleId    String           @db.Uuid
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  role    Role    @relation(fields: [roleId], references: [id])
+
+  @@unique([companyId, userId])
+  @@map("company_memberships")
+}
+
+// =====================================================================
+// EMPLEADOS (preparado para nómina)
+// =====================================================================
+
+model Position {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  companyId   String   @db.Uuid
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  employees Employee[]
+
+  @@unique([companyId, name])
+  @@map("positions")
+}
+
+model Employee {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  companyId       String         @db.Uuid
+  userId          String?        @db.Uuid // null = empleado sin acceso a la app
+  code            String // Código interno del empleado
+  documentType    DocumentType
+  documentNumber  String
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  birthDate       DateTime?      @db.Date
+  hireDate        DateTime       @db.Date
+  terminationDate DateTime?      @db.Date
+  status          EmployeeStatus @default(ACTIVE)
+  positionId      String?        @db.Uuid
+  defaultStoreId  String?        @db.Uuid
+  createdAt       DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime?      @db.Timestamptz(3)
+
+  company      Company   @relation(fields: [companyId], references: [id])
+  user         User?     @relation(fields: [userId], references: [id])
+  position     Position? @relation(fields: [positionId], references: [id])
+  defaultStore Store?    @relation(fields: [defaultStoreId], references: [id])
+
+  contracts        EmploymentContract[]
+  shiftAssignments ShiftAssignment[]
+  shiftChangesFrom ShiftChange[]        @relation("ShiftChangeFrom")
+  shiftChangesTo   ShiftChange[]        @relation("ShiftChangeTo")
+  attendances      Attendance[]
+  attendanceEvents AttendanceEvent[]
+  incidents        Incident[]
+
+  @@unique([companyId, code])
+  @@unique([companyId, documentType, documentNumber])
+  @@unique([companyId, userId])
+  @@index([companyId, status])
+  @@map("employees")
+}
+
+// Historial de contratos: base para nómina futura (salario, jornada, vigencia).
+model EmploymentContract {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  companyId    String       @db.Uuid
+  employeeId   String       @db.Uuid
+  contractType ContractType
+  startDate    DateTime     @db.Date
+  endDate      DateTime?    @db.Date
+  baseSalary   Decimal      @db.Decimal(14, 2)
+  currency     String       @default("COP") @db.Char(3)
+  weeklyHours  Decimal      @db.Decimal(5, 2)
+  notes        String?
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([companyId, employeeId, startDate])
+  @@map("employment_contracts")
+}
+
+// =====================================================================
+// ESTABLECIMIENTOS Y GEOCERCAS
+// =====================================================================
+
+model Store {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  companyId String    @db.Uuid
+  code      String
+  name      String
+  address   String?
+  city      String?
+  latitude  Float
+  longitude Float
+  timezone  String? // null = usa el de la empresa
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  geofences       Geofence[]
+  employees       Employee[]
+  schedulePeriods SchedulePeriod[]
+  shifts          Shift[]
+
+  @@unique([companyId, code])
+  @@map("stores")
+}
+
+// Geocerca circular. maxAccuracyMeters: rechaza marcaciones con GPS demasiado impreciso.
+model Geofence {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  companyId         String   @db.Uuid
+  storeId           String   @db.Uuid
+  name              String
+  centerLatitude    Float
+  centerLongitude   Float
+  radiusMeters      Int
+  maxAccuracyMeters Int      @default(100)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  company          Company           @relation(fields: [companyId], references: [id])
+  store            Store             @relation(fields: [storeId], references: [id])
+  attendanceEvents AttendanceEvent[]
+
+  @@index([storeId])
+  @@map("geofences")
+}
+
+// =====================================================================
+// TURNOS
+// =====================================================================
+
+// Periodo de programación (quincena). Se publica para notificar a los empleados.
+model SchedulePeriod {
+  id            String               @id @default(uuid(7)) @db.Uuid
+  companyId     String               @db.Uuid
+  storeId       String?              @db.Uuid // null = aplica a toda la empresa
+  name          String
+  startDate     DateTime             @db.Date
+  endDate       DateTime             @db.Date
+  status        SchedulePeriodStatus @default(DRAFT)
+  publishedAt   DateTime?            @db.Timestamptz(3)
+  publishedById String?              @db.Uuid
+  createdAt     DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+  store   Store?  @relation(fields: [storeId], references: [id])
+  shifts  Shift[]
+
+  @@index([companyId, startDate])
+  @@map("schedule_periods")
+}
+
+// Turno concreto con su ventana de marcación configurable.
+model Shift {
+  id                   String      @id @default(uuid(7)) @db.Uuid
+  companyId            String      @db.Uuid
+  storeId              String      @db.Uuid
+  schedulePeriodId     String?     @db.Uuid
+  startsAt             DateTime    @db.Timestamptz(3)
+  endsAt               DateTime    @db.Timestamptz(3)
+  breakMinutes         Int         @default(0)
+  earlyClockInMinutes  Int         @default(5) // Ej: turno 14:00 → marca desde 13:55
+  lateToleranceMinutes Int         @default(0) // Minutos de gracia antes de contar tardanza
+  status               ShiftStatus @default(SCHEDULED)
+  notes                String?
+  createdById          String?     @db.Uuid
+  createdAt            DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime    @updatedAt @db.Timestamptz(3)
+
+  company        Company           @relation(fields: [companyId], references: [id])
+  store          Store             @relation(fields: [storeId], references: [id])
+  schedulePeriod SchedulePeriod?   @relation(fields: [schedulePeriodId], references: [id])
+  assignments    ShiftAssignment[]
+
+  @@index([companyId, storeId, startsAt])
+  @@map("shifts")
+}
+
+model ShiftAssignment {
+  id           String                @id @default(uuid(7)) @db.Uuid
+  companyId    String                @db.Uuid
+  shiftId      String                @db.Uuid
+  employeeId   String                @db.Uuid
+  status       ShiftAssignmentStatus @default(ASSIGNED)
+  assignedById String?               @db.Uuid
+  createdAt    DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime              @updatedAt @db.Timestamptz(3)
+
+  company    Company       @relation(fields: [companyId], references: [id])
+  shift      Shift         @relation(fields: [shiftId], references: [id])
+  employee   Employee      @relation(fields: [employeeId], references: [id])
+  attendance Attendance?
+  changes    ShiftChange[]
+
+  @@unique([shiftId, employeeId])
+  @@index([companyId, employeeId])
+  @@map("shift_assignments")
+}
+
+// Trazabilidad de cambios de turno (reasignación, intercambio, cambio de horario).
+model ShiftChange {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  companyId         String          @db.Uuid
+  shiftAssignmentId String          @db.Uuid
+  type              ShiftChangeType
+  status            ApprovalStatus  @default(PENDING)
+  fromEmployeeId    String?         @db.Uuid
+  toEmployeeId      String?         @db.Uuid
+  previousStartsAt  DateTime?       @db.Timestamptz(3)
+  previousEndsAt    DateTime?       @db.Timestamptz(3)
+  newStartsAt       DateTime?       @db.Timestamptz(3)
+  newEndsAt         DateTime?       @db.Timestamptz(3)
+  reason            String?
+  requestedById     String?         @db.Uuid
+  reviewedById      String?         @db.Uuid
+  reviewedAt        DateTime?       @db.Timestamptz(3)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+
+  company         Company         @relation(fields: [companyId], references: [id])
+  shiftAssignment ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id])
+  fromEmployee    Employee?       @relation("ShiftChangeFrom", fields: [fromEmployeeId], references: [id])
+  toEmployee      Employee?       @relation("ShiftChangeTo", fields: [toEmployeeId], references: [id])
+
+  @@index([companyId, status])
+  @@map("shift_changes")
+}
+
+// =====================================================================
+// ASISTENCIA
+// =====================================================================
+
+// Resumen de la jornada de un turno asignado (uno por asignación).
+model Attendance {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  companyId         String           @db.Uuid
+  shiftAssignmentId String           @unique @db.Uuid
+  employeeId        String           @db.Uuid
+  workDate          DateTime         @db.Date // Fecha local del turno, para reportes
+  status            AttendanceStatus @default(PENDING)
+
+  clockInAt        DateTime? @db.Timestamptz(3)
+  clockInLatitude  Float?
+  clockInLongitude Float?
+  clockInAccuracy  Float?
+
+  clockOutAt        DateTime? @db.Timestamptz(3)
+  clockOutLatitude  Float?
+  clockOutLongitude Float?
+  clockOutAccuracy  Float?
+
+  lateMinutes       Int @default(0)
+  earlyLeaveMinutes Int @default(0)
+  workedMinutes     Int @default(0)
+  overtimeMinutes   Int @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  company         Company           @relation(fields: [companyId], references: [id])
+  shiftAssignment ShiftAssignment   @relation(fields: [shiftAssignmentId], references: [id])
+  employee        Employee          @relation(fields: [employeeId], references: [id])
+  events          AttendanceEvent[]
+  incidents       Incident[]
+
+  @@index([companyId, workDate])
+  @@index([employeeId, workDate])
+  @@map("attendances")
+}
+
+// Evento inmutable: cada intento de marcación, aceptado o rechazado.
+// Sin updatedAt a propósito: no se edita, se corrige con MANUAL_ADJUSTMENT.
+model AttendanceEvent {
+  id              String                @id @default(uuid(7)) @db.Uuid
+  companyId       String                @db.Uuid
+  employeeId      String                @db.Uuid
+  attendanceId    String?               @db.Uuid // null si se rechazó sin turno válido
+  type            AttendanceEventType
+  result          AttendanceEventResult
+  rejectionReason String? // TOO_EARLY, OUTSIDE_GEOFENCE, LOW_GPS_ACCURACY, NO_SHIFT...
+  source          AttendanceEventSource @default(MOBILE_APP)
+  serverTimestamp DateTime              @default(now()) @db.Timestamptz(3) // Hora oficial
+  clientTimestamp DateTime?             @db.Timestamptz(3) // Solo referencia (offline)
+  latitude        Float?
+  longitude       Float?
+  accuracyMeters  Float?
+  distanceMeters  Float? // Distancia al centro de la geocerca
+  withinGeofence  Boolean?
+  geofenceId      String?               @db.Uuid
+  deviceInfo      Json?
+  idempotencyKey  String? // Evita duplicados al sincronizar offline
+  createdById     String?               @db.Uuid // Admin que hizo un ajuste manual
+
+  company    Company     @relation(fields: [companyId], references: [id])
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  attendance Attendance? @relation(fields: [attendanceId], references: [id])
+  geofence   Geofence?   @relation(fields: [geofenceId], references: [id])
+
+  @@unique([companyId, idempotencyKey])
+  @@index([employeeId, serverTimestamp])
+  @@index([attendanceId])
+  @@map("attendance_events")
+}
+
+// =====================================================================
+// NOVEDADES
+// =====================================================================
+
+// Incluye permisos/incapacidades (TimeOff) y horas extra (Overtime) mediante "type".
+model Incident {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  companyId     String         @db.Uuid
+  employeeId    String         @db.Uuid
+  attendanceId  String?        @db.Uuid
+  type          IncidentType
+  status        ApprovalStatus @default(PENDING)
+  startsAt      DateTime       @db.Timestamptz(3)
+  endsAt        DateTime?      @db.Timestamptz(3)
+  minutes       Int? // Tardanza, horas extra, etc.
+  description   String?
+  attachmentUrl String? // Ej: soporte de incapacidad
+  requestedById String?        @db.Uuid
+  reviewedById  String?        @db.Uuid
+  reviewedAt    DateTime?      @db.Timestamptz(3)
+  reviewNotes   String?
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
+
+  company    Company     @relation(fields: [companyId], references: [id])
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  attendance Attendance? @relation(fields: [attendanceId], references: [id])
+
+  @@index([companyId, status])
+  @@index([employeeId, startsAt])
+  @@map("incidents")
+}
+
+// =====================================================================
+// NOTIFICACIONES
+// =====================================================================
+
+model DeviceToken {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  userId     String         @db.Uuid
+  token      String         @unique // Token FCM
+  platform   DevicePlatform
+  lastSeenAt DateTime       @default(now()) @db.Timestamptz(3)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model Notification {
+  id           String             @id @default(uuid(7)) @db.Uuid
+  companyId    String             @db.Uuid
+  userId       String             @db.Uuid
+  type         NotificationType
+  title        String
+  body         String
+  data         Json?
+  status       NotificationStatus @default(PENDING)
+  scheduledFor DateTime?          @db.Timestamptz(3)
+  sentAt       DateTime?          @db.Timestamptz(3)
+  readAt       DateTime?          @db.Timestamptz(3)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([status, scheduledFor])
+  @@map("notifications")
+}
+
+// =====================================================================
+// AUDITORÍA
+// =====================================================================
+
+model AuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  companyId   String?  @db.Uuid // null = acción de plataforma
+  actorUserId String?  @db.Uuid // null = acción del sistema (jobs)
+  action      String // Ej: "shift.updated", "incident.approved"
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}
