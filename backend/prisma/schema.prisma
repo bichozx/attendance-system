@@ -228,11 +228,12 @@ model User {
   createdAt       DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
 
-  memberships   CompanyMembership[]
-  employees     Employee[]
-  sessions      Session[]
-  deviceTokens  DeviceToken[]
-  notifications Notification[]
+  memberships         CompanyMembership[]
+  employees           Employee[]
+  sessions            Session[]
+  deviceTokens        DeviceToken[]
+  notifications       Notification[]
+  reviewedAttendances Attendance[]        @relation("AttendanceReviewer")
 
   @@map("users")
 }
@@ -556,12 +557,48 @@ model ShiftChange {
 // =====================================================================
 
 // Resumen de la jornada de un turno asignado (uno por asignación).
+// model Attendance {
+//   id                String           @id @default(uuid(7)) @db.Uuid
+//   companyId         String           @db.Uuid
+//   shiftAssignmentId String           @unique @db.Uuid
+//   employeeId        String           @db.Uuid
+//   workDate          DateTime         @db.Date // Fecha local del turno, para reportes
+//   status            AttendanceStatus @default(PENDING)
+
+//   clockInAt        DateTime? @db.Timestamptz(3)
+//   clockInLatitude  Float?
+//   clockInLongitude Float?
+//   clockInAccuracy  Float?
+
+//   clockOutAt        DateTime? @db.Timestamptz(3)
+//   clockOutLatitude  Float?
+//   clockOutLongitude Float?
+//   clockOutAccuracy  Float?
+
+//   lateMinutes       Int @default(0)
+//   earlyLeaveMinutes Int @default(0)
+//   workedMinutes     Int @default(0)
+//   overtimeMinutes   Int @default(0)
+
+//   createdAt DateTime @default(now()) @db.Timestamptz(3)
+//   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+//   company         Company           @relation(fields: [companyId], references: [id])
+//   shiftAssignment ShiftAssignment   @relation(fields: [shiftAssignmentId], references: [id])
+//   employee        Employee          @relation(fields: [employeeId], references: [id])
+//   events          AttendanceEvent[]
+//   incidents       Incident[]
+
+//   @@index([companyId, workDate])
+//   @@index([employeeId, workDate])
+//   @@map("attendances")
+// }
 model Attendance {
   id                String           @id @default(uuid(7)) @db.Uuid
   companyId         String           @db.Uuid
   shiftAssignmentId String           @unique @db.Uuid
   employeeId        String           @db.Uuid
-  workDate          DateTime         @db.Date // Fecha local del turno, para reportes
+  workDate          DateTime         @db.Date
   status            AttendanceStatus @default(PENDING)
 
   clockInAt        DateTime? @db.Timestamptz(3)
@@ -579,42 +616,86 @@ model Attendance {
   workedMinutes     Int @default(0)
   overtimeMinutes   Int @default(0)
 
+  // --- Campos nuevos para revisión de asistencias ---
+  needsReview   Boolean   @default(false)
+  reviewReasons String[]
+  reviewedAt    DateTime? @db.Timestamptz(3)
+  reviewedById  String?   @db.Uuid
+
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   company         Company           @relation(fields: [companyId], references: [id])
   shiftAssignment ShiftAssignment   @relation(fields: [shiftAssignmentId], references: [id])
   employee        Employee          @relation(fields: [employeeId], references: [id])
+  reviewedBy      User?             @relation("AttendanceReviewer", fields: [reviewedById], references: [id])
   events          AttendanceEvent[]
   incidents       Incident[]
 
   @@index([companyId, workDate])
   @@index([employeeId, workDate])
+  @@index([companyId, needsReview])
   @@map("attendances")
 }
 
 // Evento inmutable: cada intento de marcación, aceptado o rechazado.
 // Sin updatedAt a propósito: no se edita, se corrige con MANUAL_ADJUSTMENT.
+// model AttendanceEvent {
+//   id              String                @id @default(uuid(7)) @db.Uuid
+//   companyId       String                @db.Uuid
+//   employeeId      String                @db.Uuid
+//   attendanceId    String?               @db.Uuid // null si se rechazó sin turno válido
+//   type            AttendanceEventType
+//   result          AttendanceEventResult
+//   rejectionReason String? // TOO_EARLY, OUTSIDE_GEOFENCE, LOW_GPS_ACCURACY, NO_SHIFT...
+//   source          AttendanceEventSource @default(MOBILE_APP)
+//   serverTimestamp DateTime              @default(now()) @db.Timestamptz(3) // Hora oficial
+//   clientTimestamp DateTime?             @db.Timestamptz(3) // Solo referencia (offline)
+//   latitude        Float?
+//   longitude       Float?
+//   accuracyMeters  Float?
+//   distanceMeters  Float? // Distancia al centro de la geocerca
+//   withinGeofence  Boolean?
+//   geofenceId      String?               @db.Uuid
+//   deviceInfo      Json?
+//   idempotencyKey  String? // Evita duplicados al sincronizar offline
+//   createdById     String?               @db.Uuid // Admin que hizo un ajuste manual
+
+//   company    Company     @relation(fields: [companyId], references: [id])
+//   employee   Employee    @relation(fields: [employeeId], references: [id])
+//   attendance Attendance? @relation(fields: [attendanceId], references: [id])
+//   geofence   Geofence?   @relation(fields: [geofenceId], references: [id])
+
+//   @@unique([companyId, idempotencyKey])
+//   @@index([employeeId, serverTimestamp])
+//   @@index([attendanceId])
+//   @@map("attendance_events")
+// }
 model AttendanceEvent {
   id              String                @id @default(uuid(7)) @db.Uuid
   companyId       String                @db.Uuid
   employeeId      String                @db.Uuid
-  attendanceId    String?               @db.Uuid // null si se rechazó sin turno válido
+  attendanceId    String?               @db.Uuid
   type            AttendanceEventType
   result          AttendanceEventResult
-  rejectionReason String? // TOO_EARLY, OUTSIDE_GEOFENCE, LOW_GPS_ACCURACY, NO_SHIFT...
+  rejectionReason String?
   source          AttendanceEventSource @default(MOBILE_APP)
-  serverTimestamp DateTime              @default(now()) @db.Timestamptz(3) // Hora oficial
-  clientTimestamp DateTime?             @db.Timestamptz(3) // Solo referencia (offline)
-  latitude        Float?
-  longitude       Float?
-  accuracyMeters  Float?
-  distanceMeters  Float? // Distancia al centro de la geocerca
-  withinGeofence  Boolean?
-  geofenceId      String?               @db.Uuid
-  deviceInfo      Json?
-  idempotencyKey  String? // Evita duplicados al sincronizar offline
-  createdById     String?               @db.Uuid // Admin que hizo un ajuste manual
+  serverTimestamp DateTime              @default(now()) @db.Timestamptz(3)
+  clientTimestamp DateTime?             @db.Timestamptz(3)
+
+  // --- Campos nuevos para auditoría y revisión ---
+  clockDriftSeconds Int?
+  receivedAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  latitude       Float?
+  longitude      Float?
+  accuracyMeters Float?
+  distanceMeters Float?
+  withinGeofence Boolean?
+  geofenceId     String?  @db.Uuid
+  deviceInfo     Json?
+  idempotencyKey String?
+  createdById    String?  @db.Uuid
 
   company    Company     @relation(fields: [companyId], references: [id])
   employee   Employee    @relation(fields: [employeeId], references: [id])

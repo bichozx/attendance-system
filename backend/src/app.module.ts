@@ -4,14 +4,19 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuditModule } from './shared/infrastructure/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { DomainExceptionFilter } from './shared/presentation/domain-exception.filter';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { HttpExceptionFilter } from './shared/presentation/http-exception.filter';
+import { IncidentsModule } from './modules/incidents/incidents.module';
+import { NotificationsModule } from './shared/infrastructure/notifications/notifications.module';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ShiftsModule } from './modules/shifts/shifts.module';
 import { StoresModule } from './modules/stores/stores.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -22,6 +27,7 @@ import { UsersModule } from './modules/users/users.module';
       throttlers: [{ ttl: 60_000, limit: 100 }], // Límite general por IP
       errorMessage: 'Demasiadas peticiones. Intente de nuevo en un momento',
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -29,6 +35,10 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     EmployeesModule,
     StoresModule,
+    ShiftsModule,
+    NotificationsModule,
+    AttendanceModule,
+    IncidentsModule,
   ],
   controllers: [AppController],
   providers: [

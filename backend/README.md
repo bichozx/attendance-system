@@ -1,124 +1,112 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Sistema de control de asistencia y turnos
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend REST multiempresa para administrar usuarios, empleados, sedes, turnos y asistencia. Implementado con NestJS, TypeScript, PostgreSQL y Prisma 7. La API está versionada y expone contratos Swagger para clientes web y móviles.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Estado de auditoría
 
-## Description
+La funcionalidad principal para el cliente móvil ya está modelada. La compilación pasa tras corregir las rutas de importación; las pruebas todavía deben quedar verdes antes de iniciar la integración.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+1. **Verificado: compilación.** Se corrigieron las rutas al helper compartido `src/shared/presentation/date-range.ts`. `pnpm run build` pasa.
+2. **Bloqueante: pruebas.** Con Node `v22.19.0`, Jest falla al cargar módulos ESM de NestJS (`Must use import to load ES Module`). La prueba unitaria reporta 78 pruebas exitosas en 7 suites y una suite que no inicia; e2e tampoco inicia. Revisar la configuración ESM de Jest o usar un runtime compatible con Jest y las dependencias instaladas.
+3. **Mantenimiento.** `pnpm run lint` termina con advertencias por imports/parámetros sin uso y patrones de spread/métodos sin enlazar. No bloquean lint, pero conviene limpiarlas antes de exigirlo en CI.
 
-## Project setup
+Los controladores y módulos que ya estaban sin seguimiento en el workspace se conservaron sin cambios.
 
-```bash
-$ pnpm install
+## Requisitos y configuración
+
+- Node.js y pnpm.
+- PostgreSQL accesible desde el backend.
+- Crear un archivo `.env` local con las variables necesarias:
+
+```dotenv
+DATABASE_URL="postgresql://usuario:clave@localhost:5432/attendance?schema=public"
+JWT_ACCESS_SECRET="reemplazar-por-un-secreto-aleatorio-largo"
+PORT=3000
+NODE_ENV=development
+CORS_ORIGINS=http://localhost:3001
+TRUST_PROXY_HOPS=0
+SWAGGER_ENABLED=true
+JWT_ACCESS_TTL_SECONDS=900
+REFRESH_TOKEN_TTL_DAYS=30
+ATTENDANCE_JOB_INTERVAL_SECONDS=300
 ```
 
-## Compile and run the project
+`DATABASE_URL` y `JWT_ACCESS_SECRET` son obligatorios. Los demás valores tienen defaults en el código. `CORS_ORIGINS` acepta orígenes separados por coma y se usa principalmente para clientes web; apps nativas no suelen estar sujetas a CORS, pero necesitan una dirección de backend accesible desde el dispositivo.
+
+## Instalación y ejecución
+
+Desde este directorio:
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
+pnpm exec prisma migrate dev
+pnpm exec prisma generate
+pnpm run start:dev
 ```
 
-## Run tests
+La API local usa `http://localhost:3000/api/v1`. Swagger está en `http://localhost:3000/api/docs` cuando está habilitado. Para desplegar, aplicar migraciones ya versionadas con `pnpm exec prisma migrate deploy`.
+
+Para emuladores, configura la URL base del cliente según el entorno: Android Emulator suele alcanzar el host mediante `10.0.2.2`; iOS Simulator suele poder usar `localhost`; un dispositivo físico debe usar la IP LAN del equipo donde corre el backend.
+
+## API para la app móvil
+
+Las rutas se agregan a `/api/v1`. Salvo login y refresh, requieren `Authorization: Bearer <accessToken>` y permisos del usuario para la empresa activa.
+
+| Método | Ruta | Uso |
+| --- | --- | --- |
+| `POST` | `/auth/login` | Login; si hay varias empresas, responde `409 COMPANY_SELECTION_REQUIRED`, luego repetir con `companyId`. |
+| `POST` | `/auth/refresh` | Rotar access token y refresh token. |
+| `POST` | `/auth/logout` | Cerrar la sesión actual o todas las sesiones. |
+| `GET` | `/auth/me` | Usuario, empresa activa y permisos. |
+| `GET` | `/me/attendance/status` | Jornada abierta y próximo turno. |
+| `GET` | `/me/attendance?from=YYYY-MM-DD&to=YYYY-MM-DD` | Historial paginado; máximo 62 días. |
+| `POST` | `/me/attendance/clock-in` | Registrar entrada con ubicación e idempotency key. |
+| `POST` | `/me/attendance/clock-out` | Registrar salida con ubicación e idempotency key. |
+| `POST` | `/me/attendance/sync` | Sincronizar de 1 a 20 marcaciones offline. |
+| `GET` | `/me/shifts?from=YYYY-MM-DD&to=YYYY-MM-DD` | Turnos de periodos publicados. |
+
+### Sesión y empresa activa
+
+Login devuelve `accessToken`, `accessTokenExpiresIn`, `refreshToken`, `refreshTokenExpiresAt`, `user` y `company`. `/auth/me` devuelve además `permissions`; sirven para adaptar la interfaz, pero la autorización siempre corresponde al backend.
+
+Guardar el refresh token en almacenamiento seguro del dispositivo (SecureStore/Keychain/Keystore), nunca en almacenamiento plano. El refresh rota ambos tokens: serializar renovaciones y no enviar refresh concurrentes con el mismo token, porque la reutilización revoca la sesión.
+
+### Marcaciones y modo sin conexión
+
+Una marcación online requiere `latitude`, `longitude`, `accuracyMeters` e `idempotencyKey` UUID; `device` y `mocked` son opcionales. En una entrada puede enviarse `shiftId`. Una respuesta HTTP `200` no implica aceptación: comprobar `accepted` y `rejection`. La hora oficial es la del servidor.
+
+Para sincronizar, enviar `deviceNow` y `events`; cada evento lleva `type`, `clientTimestamp`, los campos de ubicación y una clave idempotente única. Reintentar con la misma clave evita duplicados. El servidor ajusta el desfase del reloj del dispositivo y aplica las reglas de turno y geocerca. La app debe persistir la cola pendiente y reintentarla en orden.
+
+Los timestamps son ISO 8601 con zona horaria. Las fechas de consulta son fechas de jornada `YYYY-MM-DD`, no instantes UTC. El backend calcula turnos con la zona horaria de la sede/empresa.
+
+### Errores y paginación
+
+Los errores usan `{ statusCode, code, message, details? }`. Errores de DTO usan `code: VALIDATION_ERROR` y `details.errors`. La respuesta paginada incluye `items`, `total`, `page`, `pageSize` y `totalPages`. Para la lógica del cliente, usar `code` y no el texto variable de `message`.
+
+## Módulos
+
+- `auth`: login, selección de empresa, JWT, refresh rotativo y permisos.
+- `employees`, `users`, `roles`, `stores`: personal, acceso, sedes y geocercas.
+- `shifts`: periodos de programación y turnos.
+- `attendance`: marcaciones, sync offline, historial, revisión y cierre automático.
+- `incidents`: novedades relacionadas con la asistencia.
+- `shared`: persistencia, auditoría, notificaciones, fechas y errores HTTP.
+
+El sistema es multiempresa. Todas las operaciones de negocio deben conservar el contexto `companyId` y la autorización correspondiente; no consultar datos solo por ID desde el cliente.
+
+## Comandos de calidad
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm run build
+pnpm run lint
+pnpm test -- --runInBand
+pnpm run test:e2e -- --runInBand
 ```
 
-## Deployment
+Resultados observados: build pasa; lint completa con advertencias; unit y e2e están limitados por la carga ESM de Jest bajo Node 22.19.0. Repetir los cuatro comandos después de resolver Jest, antes de integrar el cliente móvil.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Próximos pasos recomendados
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ pnpm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+1. Resolver ESM de Jest y recuperar pruebas unitarias/e2e en CI.
+2. Versionar el OpenAPI generado como contrato del cliente; agregar pruebas de contrato para auth, marcaciones y sync.
+3. Implementar primero login/empresa, estado y turnos; después marcación online, permisos de ubicación, cola offline y reintentos idempotentes.
