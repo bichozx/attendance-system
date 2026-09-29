@@ -4,11 +4,16 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './shared/infrastructure/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { DomainExceptionFilter } from './shared/presentation/domain-exception.filter';
+import { EmployeesModule } from './modules/employees/employees.module';
 import { HttpExceptionFilter } from './shared/presentation/http-exception.filter';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { StoresModule } from './modules/stores/stores.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -18,7 +23,12 @@ import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
       errorMessage: 'Demasiadas peticiones. Intente de nuevo en un momento',
     }),
     PrismaModule,
+    AuditModule,
     AuthModule,
+    RolesModule,
+    UsersModule,
+    EmployeesModule,
+    StoresModule,
   ],
   controllers: [AppController],
   providers: [
