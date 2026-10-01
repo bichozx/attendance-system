@@ -16,6 +16,10 @@ export interface NotificationRequest {
   title: string;
   body: string;
   data?: Record<string, unknown>;
+  /** Si ya existe una notificación con esta clave, no se crea otra (recordatorios). */
+  dedupeKey?: string;
+  /** Enviar a partir de esta hora (por defecto, de inmediato). */
+  scheduledFor?: Date;
 }
 
 /**

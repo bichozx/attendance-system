@@ -2,8 +2,12 @@ import type {
   ActiveMembership,
   AuthUser,
   NewSession,
+  ResetTokenRecord,
   SessionRecord,
+  SessionSummary,
 } from '../auth.types';
+
+import { SecurityPolicy } from '../account-security';
 
 /** Contrato de persistencia de Auth. La implementación vive en infraestructura (Prisma). */
 export abstract class AuthRepository {
@@ -31,4 +35,42 @@ export abstract class AuthRepository {
 
   abstract revokeSession(id: string): Promise<void>;
   abstract revokeAllUserSessions(userId: string): Promise<void>;
+
+  // --- Seguridad de la cuenta ---
+
+  /** Suma un intento fallido de forma atómica y bloquea si llega al máximo. */
+  abstract registerFailedLogin(
+    userId: string,
+    policy: SecurityPolicy,
+    now: Date,
+  ): Promise<{ attempts: number; lockedUntil: Date | null }>;
+  abstract clearLoginFailures(userId: string): Promise<void>;
+
+  /** Guarda el nuevo hash, quita la marca de contraseña temporal y desbloquea. */
+  abstract updatePassword(userId: string, passwordHash: string): Promise<void>;
+
+  abstract revokeOtherSessions(
+    userId: string,
+    keepSessionId: string,
+  ): Promise<number>;
+  abstract listActiveSessions(userId: string): Promise<SessionSummary[]>;
+  /** Solo si la sesión es del usuario. Devuelve false si no existe o ya estaba cerrada. */
+  abstract revokeUserSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<boolean>;
+
+  // --- Recuperación de contraseña ---
+
+  abstract countResetTokensSince(userId: string, since: Date): Promise<number>;
+  /** Crea un enlace nuevo e invalida los anteriores sin usar. */
+  abstract createResetToken(data: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+    requestedIp?: string;
+  }): Promise<void>;
+  abstract findResetToken(tokenHash: string): Promise<ResetTokenRecord | null>;
+  /** Marca el enlace como usado solo si aún no lo estaba (un solo uso, incluso en carreras). */
+  abstract consumeResetToken(id: string): Promise<boolean>;
 }

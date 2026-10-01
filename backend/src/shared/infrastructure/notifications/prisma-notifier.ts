@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '../../../generated/prisma/client';
 import { NotificationRequest, Notifier } from '../../application/notifier';
+
+import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -22,7 +23,10 @@ export class PrismaNotifier extends Notifier {
           title: r.title,
           body: r.body,
           data: r.data as Prisma.InputJsonValue | undefined,
+          dedupeKey: r.dedupeKey,
+          scheduledFor: r.scheduledFor,
         })),
+        skipDuplicates: true, // dedupeKey repetida = ya se envió ese recordatorio
       });
     } catch (error) {
       // Una notificación fallida no debe revertir la operación de negocio

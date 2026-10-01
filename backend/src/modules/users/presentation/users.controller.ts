@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -9,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  ApiAcceptedResponse,
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
@@ -31,13 +34,17 @@ import {
   CreateUserResponseDto,
   ListUsersQueryDto,
 } from './dto/user.dto';
+import { PasswordRecoveryService } from '../../auth/application/use-cases/password-recovery.service';
 
 @ApiTags('Usuarios')
 @ApiBearerAuth(BEARER_AUTH)
 @ApiErrors(401, 403)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly users: CompanyUsersService) {}
+  constructor(
+    private readonly users: CompanyUsersService,
+    private readonly recovery: PasswordRecoveryService,
+  ) {}
 
   @Get()
   @RequirePermissions('users.read')
@@ -108,5 +115,29 @@ export class UsersController {
     @Body() dto: ChangeUserStatusDto,
   ) {
     return this.users.changeStatus(actor, id, dto.status);
+  }
+
+  @Post(':id/password-reset')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequirePermissions('users.manage')
+  @ApiOperation({
+    summary: 'Enviar enlace de recuperación de contraseña',
+    description:
+      'El admin NO puede fijar la contraseña de otra persona: la cuenta puede ser compartida ' +
+      'con otras empresas. Solo dispara el correo de recuperación al titular.',
+  })
+  @ApiAcceptedResponse({
+    description: 'Correo enviado (o descartado si superó el límite por hora)',
+  })
+  @ApiErrors(400, { 404: 'USER_NOT_FOUND' })
+  async sendPasswordReset(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.users.get(actor.companyId, id); // 404 si no es miembro de esta empresa
+    await this.recovery.requestForUser(id, actor);
+    return {
+      message: 'Se envió el enlace de recuperación al correo del usuario.',
+    };
   }
 }

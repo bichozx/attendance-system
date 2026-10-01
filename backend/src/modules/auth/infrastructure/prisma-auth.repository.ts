@@ -2,12 +2,25 @@ import type {
   ActiveMembership,
   AuthUser,
   NewSession,
+  ResetTokenRecord,
   SessionRecord,
+  SessionSummary,
 } from '../domain/auth.types';
+import { SecurityPolicy, lockAfterFailure } from '../domain/account-security';
 
 import { AuthRepository } from '../domain/ports/auth.repository';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service';
+
+// const USER_SELECT = {
+//   id: true,
+//   email: true,
+//   passwordHash: true,
+//   firstName: true,
+//   lastName: true,
+//   status: true,
+//   isPlatformAdmin: true,
+// } as const;
 
 const USER_SELECT = {
   id: true,
@@ -17,6 +30,9 @@ const USER_SELECT = {
   lastName: true,
   status: true,
   isPlatformAdmin: true,
+  mustChangePassword: true,
+  failedLoginAttempts: true,
+  lockedUntil: true,
 } as const;
 
 @Injectable()
@@ -117,5 +133,139 @@ export class PrismaAuthRepository extends AuthRepository {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Seguridad de la cuenta
+  // ------------------------------------------------------------------
+
+  async registerFailedLogin(userId: string, policy: SecurityPolicy, now: Date) {
+    return this.prisma.$transaction(async (tx) => {
+      // increment es atómico: dos intentos simultáneos no se "pierden"
+      const { failedLoginAttempts } = await tx.user.update({
+        where: { id: userId },
+        data: { failedLoginAttempts: { increment: 1 } },
+        select: { failedLoginAttempts: true },
+      });
+      const lockedUntil = lockAfterFailure(failedLoginAttempts, policy, now);
+      if (lockedUntil) {
+        // Al bloquear se reinicia el contador: tras el bloqueo hay otros N intentos
+        await tx.user.update({
+          where: { id: userId },
+          data: { lockedUntil, failedLoginAttempts: 0 },
+        });
+      }
+      return { attempts: failedLoginAttempts, lockedUntil };
+    });
+  }
+
+  async clearLoginFailures(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+  }
+
+  async revokeOtherSessions(
+    userId: string,
+    keepSessionId: string,
+  ): Promise<number> {
+    const { count } = await this.prisma.session.updateMany({
+      where: { userId, revokedAt: null, id: { not: keepSessionId } },
+      data: { revokedAt: new Date() },
+    });
+    return count;
+  }
+
+  async listActiveSessions(userId: string): Promise<SessionSummary[]> {
+    const rows = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      select: {
+        id: true,
+        companyId: true,
+        userAgent: true,
+        ipAddress: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const companyIds = [
+      ...new Set(rows.map((r) => r.companyId).filter((c): c is string => !!c)),
+    ];
+    const companies = new Map(
+      (
+        await this.prisma.company.findMany({
+          where: { id: { in: companyIds } },
+          select: { id: true, name: true },
+        })
+      ).map((c) => [c.id, c.name]),
+    );
+    return rows.map((r) => ({
+      ...r,
+      companyName: r.companyId ? (companies.get(r.companyId) ?? null) : null,
+    }));
+  }
+
+  async revokeUserSession(userId: string, sessionId: string): Promise<boolean> {
+    const { count } = await this.prisma.session.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return count === 1;
+  }
+
+  // ------------------------------------------------------------------
+  // Recuperación de contraseña
+  // ------------------------------------------------------------------
+
+  countResetTokensSince(userId: string, since: Date): Promise<number> {
+    return this.prisma.passwordResetToken.count({
+      where: { userId, createdAt: { gte: since } },
+    });
+  }
+
+  async createResetToken(data: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+    requestedIp?: string;
+  }): Promise<void> {
+    await this.prisma.$transaction([
+      // Solo el enlace más reciente sirve
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: data.userId, usedAt: null },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.passwordResetToken.create({ data }),
+    ]);
+  }
+
+  findResetToken(tokenHash: string): Promise<ResetTokenRecord | null> {
+    return this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      select: { id: true, userId: true, expiresAt: true, usedAt: true },
+    });
+  }
+
+  async consumeResetToken(id: string): Promise<boolean> {
+    const { count } = await this.prisma.passwordResetToken.updateMany({
+      where: { id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    return count === 1;
   }
 }

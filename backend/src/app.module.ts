@@ -7,11 +7,14 @@ import { AppService } from './app.service';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuditModule } from './shared/infrastructure/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CompaniesModule } from './modules/companies/companies.module';
 import { ConfigModule } from '@nestjs/config';
 import { DomainExceptionFilter } from './shared/presentation/domain-exception.filter';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { HttpExceptionFilter } from './shared/presentation/http-exception.filter';
 import { IncidentsModule } from './modules/incidents/incidents.module';
+import { MailModule } from './shared/infrastructure/mail/mail.module';
+import { NotificationCenterModule } from './modules/notifications/notification-center.module';
 import { NotificationsModule } from './shared/infrastructure/notifications/notifications.module';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -31,6 +34,7 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     AuditModule,
     AuthModule,
+    CompaniesModule,
     RolesModule,
     UsersModule,
     EmployeesModule,
@@ -39,6 +43,8 @@ import { UsersModule } from './modules/users/users.module';
     NotificationsModule,
     AttendanceModule,
     IncidentsModule,
+    MailModule,
+    NotificationCenterModule,
   ],
   controllers: [AppController],
   providers: [

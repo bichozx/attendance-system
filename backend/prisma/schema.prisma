@@ -185,9 +185,14 @@ model Company {
   timezone  String        @default("America/Bogota")
   currency  String        @default("COP") @db.Char(3)
   status    CompanyStatus @default(TRIAL)
-  createdAt DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime      @updatedAt @db.Timestamptz(3)
-  deletedAt DateTime?     @db.Timestamptz(3)
+
+  // Valores por defecto de los turnos nuevos (cada turno puede cambiarlos)
+  defaultEarlyClockInMinutes  Int       @default(5)
+  defaultLateToleranceMinutes Int       @default(0)
+  defaultBreakMinutes         Int       @default(0)
+  createdAt                   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt                   DateTime? @db.Timestamptz(3)
 
   memberships      CompanyMembership[]
   roles            Role[]
@@ -215,6 +220,29 @@ model Company {
 // =====================================================================
 
 // Identidad global de login. Una persona puede pertenecer a varias empresas.
+// model User {
+//   id              String     @id @default(uuid(7)) @db.Uuid
+//   email           String     @unique
+//   passwordHash    String
+//   firstName       String
+//   lastName        String
+//   phone           String?
+//   status          UserStatus @default(ACTIVE)
+//   isPlatformAdmin Boolean    @default(false) // Superadministrador de la plataforma
+//   lastLoginAt     DateTime?  @db.Timestamptz(3)
+//   createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+//   updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
+
+//   memberships         CompanyMembership[]
+//   employees           Employee[]
+//   sessions            Session[]
+//   deviceTokens        DeviceToken[]
+//   notifications       Notification[]
+//   reviewedAttendances Attendance[]        @relation("AttendanceReviewer")
+
+//   @@map("users")
+// }
+
 model User {
   id              String     @id @default(uuid(7)) @db.Uuid
   email           String     @unique
@@ -225,15 +253,23 @@ model User {
   status          UserStatus @default(ACTIVE)
   isPlatformAdmin Boolean    @default(false) // Superadministrador de la plataforma
   lastLoginAt     DateTime?  @db.Timestamptz(3)
-  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
+
+  // Seguridad de la cuenta
+  mustChangePassword  Boolean   @default(false) // Contraseña temporal asignada por un admin
+  passwordChangedAt   DateTime? @db.Timestamptz(3)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime? @db.Timestamptz(3) // Bloqueo temporal por intentos fallidos
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
 
   memberships         CompanyMembership[]
   employees           Employee[]
   sessions            Session[]
+  resetTokens         PasswordResetToken[]
   deviceTokens        DeviceToken[]
   notifications       Notification[]
-  reviewedAttendances Attendance[]        @relation("AttendanceReviewer")
+  attendances         Attendance[]
+  reviewedAttendances Attendance[]         @relation("AttendanceReviewer")
 
   @@map("users")
 }
@@ -250,10 +286,27 @@ model Session {
   revokedAt        DateTime? @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceTokens DeviceToken[]
 
   @@index([userId])
   @@map("sessions")
+}
+
+// Enlace de recuperación de contraseña: se guarda solo el hash, dura minutos y sirve una vez.
+model PasswordResetToken {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique
+  expiresAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  requestedIp String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_reset_tokens")
 }
 
 // companyId null = rol plantilla del sistema (EMPLOYEE, ADMIN...) copiable por empresa.
@@ -512,11 +565,12 @@ model ShiftAssignment {
   createdAt    DateTime              @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime              @updatedAt @db.Timestamptz(3)
 
-  company    Company       @relation(fields: [companyId], references: [id])
-  shift      Shift         @relation(fields: [shiftId], references: [id])
-  employee   Employee      @relation(fields: [employeeId], references: [id])
-  attendance Attendance?
-  changes    ShiftChange[]
+  company            Company       @relation(fields: [companyId], references: [id])
+  shift              Shift         @relation(fields: [shiftId], references: [id])
+  employee           Employee      @relation(fields: [employeeId], references: [id])
+  attendance         Attendance?
+  changes            ShiftChange[] @relation("ShiftChangeAssignment")
+  counterpartChanges ShiftChange[] @relation("ShiftChangeCounterpart")
 
   @@unique([shiftId, employeeId])
   @@index([companyId, employeeId])
@@ -540,15 +594,27 @@ model ShiftChange {
   requestedById     String?         @db.Uuid
   reviewedById      String?         @db.Uuid
   reviewedAt        DateTime?       @db.Timestamptz(3)
-  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
 
-  company         Company         @relation(fields: [companyId], references: [id])
-  shiftAssignment ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id])
-  fromEmployee    Employee?       @relation("ShiftChangeFrom", fields: [fromEmployeeId], references: [id])
-  toEmployee      Employee?       @relation("ShiftChangeTo", fields: [toEmployeeId], references: [id])
+  // Solicitudes hechas por empleados (las del admin quedan con isRequest = false)
+  isRequest               Boolean   @default(false)
+  /**
+   * Intercambio: la asignación del compañero que se recibe a cambio.
+   */
+  counterpartAssignmentId String?   @db.Uuid
+  peerRespondedAt         DateTime? @db.Timestamptz(3)
+  peerAccepted            Boolean?
+  reviewNotes             String?
+  createdAt               DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(3)
+
+  company               Company          @relation(fields: [companyId], references: [id])
+  shiftAssignment       ShiftAssignment  @relation("ShiftChangeAssignment", fields: [shiftAssignmentId], references: [id])
+  counterpartAssignment ShiftAssignment? @relation("ShiftChangeCounterpart", fields: [counterpartAssignmentId], references: [id])
+  fromEmployee          Employee?        @relation("ShiftChangeFrom", fields: [fromEmployeeId], references: [id])
+  toEmployee            Employee?        @relation("ShiftChangeTo", fields: [toEmployeeId], references: [id])
 
   @@index([companyId, status])
+  @@index([companyId, isRequest, status])
   @@map("shift_changes")
 }
 
@@ -598,7 +664,7 @@ model Attendance {
   companyId         String           @db.Uuid
   shiftAssignmentId String           @unique @db.Uuid
   employeeId        String           @db.Uuid
-  workDate          DateTime         @db.Date
+  workDate          DateTime         @db.Date // Fecha local del turno, para reportes
   status            AttendanceStatus @default(PENDING)
 
   clockInAt        DateTime? @db.Timestamptz(3)
@@ -631,6 +697,8 @@ model Attendance {
   reviewedBy      User?             @relation("AttendanceReviewer", fields: [reviewedById], references: [id])
   events          AttendanceEvent[]
   incidents       Incident[]
+  user            User?             @relation(fields: [userId], references: [id])
+  userId          String?           @db.Uuid
 
   @@index([companyId, workDate])
   @@index([employeeId, workDate])
@@ -672,30 +740,27 @@ model Attendance {
 //   @@map("attendance_events")
 // }
 model AttendanceEvent {
-  id              String                @id @default(uuid(7)) @db.Uuid
-  companyId       String                @db.Uuid
-  employeeId      String                @db.Uuid
-  attendanceId    String?               @db.Uuid
-  type            AttendanceEventType
-  result          AttendanceEventResult
-  rejectionReason String?
-  source          AttendanceEventSource @default(MOBILE_APP)
-  serverTimestamp DateTime              @default(now()) @db.Timestamptz(3)
-  clientTimestamp DateTime?             @db.Timestamptz(3)
-
-  // --- Campos nuevos para auditoría y revisión ---
-  clockDriftSeconds Int?
-  receivedAt        DateTime @default(now()) @db.Timestamptz(3)
-
-  latitude       Float?
-  longitude      Float?
-  accuracyMeters Float?
-  distanceMeters Float?
-  withinGeofence Boolean?
-  geofenceId     String?  @db.Uuid
-  deviceInfo     Json?
-  idempotencyKey String?
-  createdById    String?  @db.Uuid
+  id                String                @id @default(uuid(7)) @db.Uuid
+  companyId         String                @db.Uuid
+  employeeId        String                @db.Uuid
+  attendanceId      String?               @db.Uuid // null si se rechazó sin turno válido
+  type              AttendanceEventType
+  result            AttendanceEventResult
+  rejectionReason   String? // TOO_EARLY, OUTSIDE_GEOFENCE, LOW_GPS_ACCURACY, NO_SHIFT...
+  source            AttendanceEventSource @default(MOBILE_APP)
+  serverTimestamp   DateTime              @default(now()) @db.Timestamptz(3) // Hora oficial
+  clientTimestamp   DateTime?             @db.Timestamptz(3) // Solo referencia (offline)
+  receivedAt        DateTime              @default(now()) @db.Timestamptz(3) // Cuándo llegó al servidor
+  clockDriftSeconds Int? // Desfase del reloj del teléfono (solo offline)
+  latitude          Float?
+  longitude         Float?
+  accuracyMeters    Float?
+  distanceMeters    Float? // Distancia al centro de la geocerca
+  withinGeofence    Boolean?
+  geofenceId        String?               @db.Uuid
+  deviceInfo        Json?
+  idempotencyKey    String? // Evita duplicados al sincronizar offline
+  createdById       String?               @db.Uuid // Admin que hizo un ajuste manual
 
   company    Company     @relation(fields: [companyId], references: [id])
   employee   Employee    @relation(fields: [employeeId], references: [id])
@@ -748,15 +813,31 @@ model Incident {
 model DeviceToken {
   id         String         @id @default(uuid(7)) @db.Uuid
   userId     String         @db.Uuid
+  /**
+   * Sesión que registró el dispositivo: si se cierra, deja de recibir push.
+   */
+  sessionId  String?        @db.Uuid
   token      String         @unique // Token FCM
   platform   DevicePlatform
   lastSeenAt DateTime       @default(now()) @db.Timestamptz(3)
   createdAt  DateTime       @default(now()) @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+// Ticket del servicio de push: a los ~15 min se consulta su recibo para detectar
+// dispositivos que ya no existen (app desinstalada) y dejar de enviarles.
+model PushTicket {
+  id        String   @id // id del ticket que devuelve el proveedor
+  token     String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("push_tickets")
 }
 
 model Notification {
@@ -771,13 +852,25 @@ model Notification {
   scheduledFor DateTime?          @db.Timestamptz(3)
   sentAt       DateTime?          @db.Timestamptz(3)
   readAt       DateTime?          @db.Timestamptz(3)
-  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  // Entrega por push (patrón outbox con reintentos)
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime? @db.Timestamptz(3)
+  lastError     String?
+  pushedDevices Int       @default(0)
+  /**
+   * Evita duplicar recordatorios automáticos (ej. "shift-reminder:<asignación>").
+   */
+  dedupeKey     String?   @unique
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
 
   company Company @relation(fields: [companyId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 
   @@index([userId, status])
   @@index([status, scheduledFor])
+  @@index([status, nextAttemptAt])
+  @@index([userId, companyId, createdAt])
   @@map("notifications")
 }
 
