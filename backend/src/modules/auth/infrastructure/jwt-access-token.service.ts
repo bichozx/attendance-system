@@ -14,6 +14,8 @@ interface AccessTokenPayload {
   cid: string | null;
   pa: boolean;
   perms: string[];
+  /** Contraseña temporal pendiente de cambio. */
+  pwc?: boolean;
 }
 
 @Injectable()
@@ -32,6 +34,7 @@ export class JwtAccessTokenService extends AccessTokenService {
       cid: claims.companyId,
       pa: claims.isPlatformAdmin,
       perms: claims.permissions,
+      ...(claims.mustChangePassword && { pwc: true }),
     };
     const token = await this.jwt.signAsync(payload);
     return { token, expiresIn: this.settings.accessTokenTtlSeconds };
@@ -46,6 +49,7 @@ export class JwtAccessTokenService extends AccessTokenService {
         companyId: payload.cid,
         isPlatformAdmin: payload.pa,
         permissions: payload.perms,
+        mustChangePassword: payload.pwc === true,
       };
     } catch {
       return null;

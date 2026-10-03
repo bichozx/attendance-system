@@ -1,0 +1,97 @@
+# Verifica el backend en cada push y pull request: tipos, pruebas unitarias,
+# compilación, pruebas de punta a punta contra PostgreSQL real e imagen Docker.
+name: Backend CI
+
+on:
+  push:
+    branches: [master, main]
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tipos, unitarias y punta a punta
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: attendance
+          POSTGRES_PASSWORD: attendance_dev
+          POSTGRES_DB: attendance_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U attendance -d attendance_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://attendance:attendance_dev@localhost:5432/attendance_test
+      E2E_DATABASE_URL: postgresql://attendance:attendance_dev@localhost:5432/attendance_test
+      # Solo para CI (≥ 32 caracteres); producción usa su propio valor
+      JWT_ACCESS_SECRET: ci-only-6f1d0c2a9b8e4f7aa3c5d9e1b2f4a6c8d0e2f4a6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar cliente de Prisma
+        run: pnpm exec prisma generate
+
+      - name: Verificar tipos
+        run: pnpm exec tsc --noEmit -p tsconfig.json
+
+      - name: Pruebas unitarias
+        run: pnpm test -- --ci
+
+      - name: Compilar
+        run: pnpm run build
+
+      - name: Pruebas de punta a punta
+        run: node test/e2e/run.mjs
+
+      - name: Guardar logs del backend si algo falló
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: /tmp/e2e-*.log
+          retention-days: 7
+
+  docker:
+    name: Imagen Docker
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Construir imagen de la API (sin publicar)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: runtime
+          push: false
+          tags: asistencia-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

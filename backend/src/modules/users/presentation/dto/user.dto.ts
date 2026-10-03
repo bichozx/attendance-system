@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
@@ -8,10 +9,8 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-
-import { IsStrongPassword } from '../../../../shared/presentation/validators/password.decorator';
 import { PaginationQueryDto } from '../../../../shared/presentation/pagination-query.dto';
-import { Transform } from 'class-transformer';
+import { IsStrongPassword } from '../../../../shared/presentation/validators/password.decorator';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;

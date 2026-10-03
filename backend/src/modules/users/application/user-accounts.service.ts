@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Actor, AuditLog } from '../../../shared/application/audit-log';
+import { AccountEmails } from '../../auth/application/account-emails';
+import { PasswordRecoveryService } from '../../auth/application/use-cases/password-recovery.service';
 import { PasswordHasher } from '../../auth/domain/ports/password-hasher';
 import { RoleNotFoundError } from '../../roles/domain/role.errors';
 import { RoleRepository } from '../../roles/domain/role.repository';
@@ -8,6 +10,9 @@ import {
   PasswordRequiredError,
   UserAlreadyMemberError,
 } from '../domain/user.errors';
+
+/** Marca de cuenta invitada: no es un hash válido, así que ninguna contraseña coincide. */
+export const INVITATION_PENDING = '!invitation-pending';
 
 export interface MemberInput {
   email: string;
@@ -38,6 +43,8 @@ export class UserAccountsService {
     private readonly roles: RoleRepository,
     private readonly passwords: PasswordHasher,
     private readonly audit: AuditLog,
+    private readonly recovery: PasswordRecoveryService,
+    private readonly emails: AccountEmails,
   ) {}
 
   normalizeEmail(email: string): string {
@@ -92,10 +99,72 @@ export class UserAccountsService {
         firstName: input.firstName.trim(),
         lastName: input.lastName.trim(),
         phone: input.phone ?? null,
+        // La contraseña inicial la conoce el admin: la persona debe cambiarla al entrar
+        mustChangePassword: true,
       },
       role.id,
     );
     await this.record(actor, userId, 'user.created', {
+      email,
+      roleId: role.id,
+    });
+    return { userId, existingAccount: false, alreadyMember: false };
+  }
+
+  /**
+   * Da acceso SIN contraseña inicial: cuenta nueva → correo de invitación para que la
+   * persona cree la suya (nadie más la conoce); cuenta existente → aviso de nuevo acceso.
+   * Lo usa la importación masiva (no se reparten cientos de contraseñas temporales).
+   */
+  async inviteMember(
+    actor: Actor,
+    input: Omit<MemberInput, 'password'>,
+  ): Promise<MemberResult> {
+    const role = await this.roles.findVisible(actor.companyId, input.roleId);
+    if (!role) throw new RoleNotFoundError();
+    const email = this.normalizeEmail(input.email);
+    const companyName = await this.users.companyName(actor.companyId);
+    const existingId = await this.users.findUserIdByEmail(email);
+
+    if (existingId) {
+      if (await this.users.findById(actor.companyId, existingId)) {
+        return {
+          userId: existingId,
+          existingAccount: true,
+          alreadyMember: true,
+        };
+      }
+      await this.users.addMembership(actor.companyId, existingId, role.id);
+      this.emails.addedToCompany(
+        { email, firstName: input.firstName },
+        companyName,
+        role.name,
+      );
+      await this.record(actor, existingId, 'user.membership_added', {
+        roleId: role.id,
+      });
+      return {
+        userId: existingId,
+        existingAccount: true,
+        alreadyMember: false,
+      };
+    }
+
+    const userId = await this.users.createAccountWithMembership(
+      actor.companyId,
+      {
+        email,
+        // Hash inválido a propósito: nadie puede entrar hasta crear su contraseña con el enlace
+        passwordHash: INVITATION_PENDING,
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        phone: input.phone ?? null,
+        mustChangePassword: false,
+      },
+      role.id,
+    );
+    await this.recovery.invite(userId, companyName, role.name.toLowerCase());
+    await this.record(actor, userId, 'user.invited', {
       email,
       roleId: role.id,
     });

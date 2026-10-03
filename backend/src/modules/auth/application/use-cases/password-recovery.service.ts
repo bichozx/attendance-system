@@ -1,12 +1,12 @@
-import { AccountEmails } from '../account-emails';
-import { AuditLog } from '../../../../shared/application/audit-log';
-import { AuthRepository } from '../../domain/ports/auth.repository';
-import { AuthSettings } from '../auth.settings';
-import type { AuthUser } from '../../domain/auth.types';
 import { Injectable } from '@nestjs/common';
+import { AuditLog } from '../../../../shared/application/audit-log';
 import { InvalidResetTokenError } from '../../domain/auth.errors';
+import { AuthRepository } from '../../domain/ports/auth.repository';
 import { PasswordHasher } from '../../domain/ports/password-hasher';
 import { SecretTokens } from '../../domain/ports/secret-tokens';
+import type { AuthUser } from '../../domain/auth.types';
+import { AccountEmails } from '../account-emails';
+import { AuthSettings } from '../auth.settings';
 
 /**
  * Recuperación de contraseña por correo.
@@ -86,14 +86,18 @@ export class PasswordRecoveryService {
    * Invitación de una cuenta recién creada: mismo mecanismo que la recuperación,
    * pero con vigencia larga y sin el límite por hora (lo dispara el superadmin).
    */
-  async invite(userId: string, companyName: string): Promise<void> {
+  async invite(
+    userId: string,
+    companyName: string,
+    roleName?: string,
+  ): Promise<void> {
     const user = await this.repository.findUserById(userId);
     if (!user) return;
     const token = await this.createToken(
       user.id,
       this.settings.security.inviteTokenTtlHours * 60,
     );
-    this.emails.invitation(user, token, companyName);
+    this.emails.invitation(user, token, companyName, roleName);
   }
 
   private async issue(user: AuthUser, requestedIp?: string): Promise<boolean> {

@@ -21,7 +21,7 @@ import { CurrentCompanyId } from '../../../shared/auth/current-company.decorator
 import { RequirePermissions } from '../../../shared/auth/require-permissions.decorator';
 import { parseDateOnly } from '../../../shared/domain/date-only';
 import { ApiErrors } from '../../../shared/presentation/api-errors.decorator';
-
+import { ApiPaginatedResponse } from '../../../shared/presentation/api-paginated-response.decorator';
 import { BEARER_AUTH } from '../../../shared/presentation/swagger';
 import { EmployeesService } from '../application/employees.service';
 import { ChangeEmployeeStatusUseCase } from '../application/use-cases/change-employee-status.use-case';
@@ -36,7 +36,6 @@ import {
   UpdateEmployeeDto,
 } from './dto/employee.dto';
 import { EmployeePresenter } from './employee.presenter';
-import { ApiPaginatedResponse } from '../../../shared/presentation/api-paginated-response.decorator';
 
 @ApiTags('Empleados')
 @ApiBearerAuth(BEARER_AUTH)

@@ -30,4 +30,6 @@ export interface NewAccount {
   firstName: string;
   lastName: string;
   phone: string | null;
+  /** true cuando la contraseña la definió un admin: se exige cambiarla al entrar. */
+  mustChangePassword: boolean;
 }

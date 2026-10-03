@@ -12,6 +12,8 @@ export interface UserProfile {
   firstName: string;
   lastName: string;
   isPlatformAdmin: boolean;
+  /** true = debe cambiar la contraseña temporal antes de continuar. */
+  mustChangePassword: boolean;
 }
 
 export interface ActiveCompany {

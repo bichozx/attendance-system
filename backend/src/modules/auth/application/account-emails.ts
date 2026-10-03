@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MailMessage, Mailer } from '../../../shared/application/mailer';
-
+import { Mailer, MailMessage } from '../../../shared/application/mailer';
 import { AuthSettings } from './auth.settings';
 
 interface Recipient {
@@ -60,14 +59,19 @@ export class AccountEmails {
   }
 
   /** Cuenta nueva: la persona crea su propia contraseña (nadie más la conoce). */
-  invitation(to: Recipient, token: string, companyName: string) {
+  invitation(
+    to: Recipient,
+    token: string,
+    companyName: string,
+    roleName = 'administrador',
+  ) {
     const hours = this.settings.security.inviteTokenTtlHours;
     this.dispatch({
       to: to.email,
       subject: `Te damos la bienvenida a ${companyName}`,
       text:
         `Hola ${to.firstName},\n\n` +
-        `Se creó tu cuenta de administrador para ${companyName} en el sistema de control de ` +
+        `Se creó tu cuenta en ${companyName} (${roleName}) en el sistema de control de ` +
         `asistencia. Para activarla, crea tu contraseña con este enlace (válido por ${hours} horas, ` +
         `un solo uso):\n\n${this.settings.resetLink(token)}\n\n` +
         'Si no esperabas este correo, ignóralo.',

@@ -1,16 +1,5 @@
 /** Reglas de seguridad de la cuenta (puras: sin base de datos ni reloj global). */
 
-// export interface SecurityPolicy {
-//   /** Intentos fallidos seguidos antes de bloquear. */
-//   maxFailedLogins: number;
-//   /** Duración del bloqueo temporal. */
-//   lockMinutes: number;
-//   /** Vigencia del enlace de recuperación. */
-//   resetTokenTtlMinutes: number;
-//   /** Máximo de enlaces de recuperación por usuario y hora (evita inundar su correo). */
-//   maxResetRequestsPerHour: number;
-// }
-
 export interface SecurityPolicy {
   /** Intentos fallidos seguidos antes de bloquear. */
   maxFailedLogins: number;
@@ -23,6 +12,7 @@ export interface SecurityPolicy {
   /** Vigencia del enlace de bienvenida para crear la contraseña. */
   inviteTokenTtlHours: number;
 }
+
 export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   maxFailedLogins: 5,
   lockMinutes: 15,

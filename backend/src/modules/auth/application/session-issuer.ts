@@ -60,6 +60,7 @@ export class SessionIssuer {
       companyId: membership?.companyId ?? null,
       isPlatformAdmin: user.isPlatformAdmin,
       permissions: membership?.permissions ?? [],
+      mustChangePassword: user.mustChangePassword,
     };
     return this.accessTokens.sign(claims);
   }

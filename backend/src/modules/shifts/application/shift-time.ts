@@ -44,20 +44,12 @@ export function describeDay(at: Date, timeZone: string): string {
     .replace(/\./g, '');
 }
 
-/** "vie 16 oct, 14:00–22:00" para mensajes al empleado. */
+/** "vie, 16 de oct, 14:00–22:00" para mensajes al empleado. */
 export function describeShift(
   startsAt: Date,
   endsAt: Date,
   timeZone: string,
 ): string {
-  const day = new Intl.DateTimeFormat('es-CO', {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
-    .format(startsAt)
-    .replace(/\./g, '');
   const t = toLocalShiftTime(startsAt, endsAt, timeZone);
-  return `${day}, ${t.startTime}–${t.endTime}`;
+  return `${describeDay(startsAt, timeZone)}, ${t.startTime}–${t.endTime}`;
 }

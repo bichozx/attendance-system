@@ -1,14 +1,5 @@
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 
-// export interface AuthUser {
-//   id: string;
-//   email: string;
-//   passwordHash: string;
-//   firstName: string;
-//   lastName: string;
-//   status: UserStatus;
-//   isPlatformAdmin: boolean;
-// }
 export interface AuthUser {
   id: string;
   email: string;

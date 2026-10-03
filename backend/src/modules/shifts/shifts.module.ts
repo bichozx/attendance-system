@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
 import { SchedulePeriodsService } from './application/schedule-periods.service';
+import { ShiftChangeRequestsService } from './application/shift-change-requests.service';
+import { ShiftChangeRepository } from './domain/shift-change.repository';
+import { PrismaShiftChangeRepository } from './infrastructure/prisma-shift-change.repository';
+import {
+  MyShiftChangesController,
+  ShiftChangesController,
+} from './presentation/shift-changes.controller';
 import { ShiftsService } from './application/shifts.service';
 import {
   SchedulePeriodRepository,
@@ -16,10 +23,14 @@ import { ShiftsController } from './presentation/shifts.controller';
     SchedulePeriodsController,
     ShiftsController,
     MyShiftsController,
+    MyShiftChangesController,
+    ShiftChangesController,
   ],
   providers: [
     SchedulePeriodsService,
     ShiftsService,
+    ShiftChangeRequestsService,
+    { provide: ShiftChangeRepository, useClass: PrismaShiftChangeRepository },
     {
       provide: SchedulePeriodRepository,
       useClass: PrismaSchedulePeriodRepository,

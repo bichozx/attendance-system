@@ -106,6 +106,12 @@ export interface SchedulingStore {
   name: string;
   isActive: boolean;
   timeZone: string;
+  /** Valores por defecto configurados por la empresa. */
+  defaults: {
+    breakMinutes: number;
+    earlyClockInMinutes: number;
+    lateToleranceMinutes: number;
+  };
 }
 
 export interface ShiftChangeRecord {

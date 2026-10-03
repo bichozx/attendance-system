@@ -1,4 +1,6 @@
 import type { PageRequest } from '../../../shared/application/page';
+import type { ConflictDetail } from './shift.errors';
+import type { Candidate } from './shift.rules';
 import type {
   EmployeeForScheduling,
   NewPeriod,
@@ -76,6 +78,14 @@ export abstract class ShiftRepository {
     userId: string,
   ): Promise<string | null>;
 
+  /** Incapacidades y permisos APROBADOS que se cruzan con el rango. */
+  abstract findApprovedTimeOff(
+    companyId: string,
+    employeeIds: string[],
+    from: Date,
+    to: Date,
+  ): Promise<{ employeeId: string; startsAt: Date; endsAt: Date }[]>;
+
   /** Crea turnos con sus asignaciones. Lanza ScheduleConflictError si hay cruces. */
   abstract createMany(
     companyId: string,
@@ -114,4 +124,30 @@ export abstract class ShiftRepository {
     companyId: string,
     employeeIds: string[],
   ): Promise<Map<string, string>>;
+
+  /**
+   * Revisión SIN bloqueo de cruces, ignorando las asignaciones que se van a liberar.
+   * Sirve para filtrar opciones; la validación definitiva la hace applyMoves.
+   */
+  abstract previewConflicts(
+    companyId: string,
+    candidates: Candidate[],
+    vacating: string[],
+  ): Promise<ConflictDetail[]>;
+
+  /**
+   * Mueve personas entre turnos en UNA transacción con bloqueo de los empleados:
+   * libera cada asignación de origen (debe seguir ASSIGNED y el turno sin empezar),
+   * valida cruces y asigna. Si algo falla, no se mueve nada.
+   * Lanza ShiftChangeStaleError si una asignación ya no está como se pidió.
+   */
+  abstract applyMoves(
+    companyId: string,
+    moves: {
+      vacateAssignmentId: string;
+      employeeId: string;
+      shiftId: string;
+    }[],
+    actorUserId: string,
+  ): Promise<void>;
 }

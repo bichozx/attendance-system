@@ -1,9 +1,22 @@
+import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
+import { AuditLog } from '../../../shared/application/audit-log';
+import { PageRequest, toPage } from '../../../shared/application/page';
+import { AccountEmails } from '../../auth/application/account-emails';
+import { PasswordRecoveryService } from '../../auth/application/use-cases/password-recovery.service';
+import { PasswordHasher } from '../../auth/domain/ports/password-hasher';
 import {
   CompanyAdminNotFoundError,
   CompanyNotFoundError,
   CompanySlugTakenError,
   CompanyTaxIdTakenError,
 } from '../domain/company.errors';
+import { CompanyRepository } from '../domain/company.repository';
+import {
+  assertCompanySettings,
+  blocksAccess,
+  slugify,
+} from '../domain/company.rules';
 import type {
   CompanyFilter,
   CompanyLegalChanges,
@@ -11,20 +24,6 @@ import type {
   FirstAdminInput,
   PlatformCompanyDetail,
 } from '../domain/company.types';
-import { PageRequest, toPage } from '../../../shared/application/page';
-import {
-  assertCompanySettings,
-  blocksAccess,
-  slugify,
-} from '../domain/company.rules';
-
-import { AccountEmails } from '../../auth/application/account-emails';
-import { AuditLog } from '../../../shared/application/audit-log';
-import { CompanyRepository } from '../domain/company.repository';
-import { Injectable } from '@nestjs/common';
-import { PasswordHasher } from '../../auth/domain/ports/password-hasher';
-import { PasswordRecoveryService } from '../../auth/application/use-cases/password-recovery.service';
-import { randomBytes } from 'node:crypto';
 
 export interface CreateCompanyInput {
   name: string;

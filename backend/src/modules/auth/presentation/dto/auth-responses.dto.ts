@@ -25,6 +25,8 @@ export class UserProfileDto {
   /** @example "Administradora" */
   lastName: string;
   isPlatformAdmin: boolean;
+  /** true = contraseña temporal: la app debe llevar a la pantalla de cambio. */
+  mustChangePassword: boolean;
 }
 
 export class CompanyRoleDto {

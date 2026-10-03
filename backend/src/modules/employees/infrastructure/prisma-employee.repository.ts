@@ -179,6 +179,23 @@ export class PrismaEmployeeRepository extends EmployeeRepository {
         select: EMPLOYEE_SELECT,
       });
 
+      // Retiro: el contrato abierto termina en la fecha de retiro
+      if (change.status === 'TERMINATED' && change.terminationDate) {
+        await tx.employmentContract.updateMany({
+          where: {
+            companyId,
+            employeeId: id,
+            startDate: { lte: change.terminationDate },
+            // Abierto, o con fin pactado posterior al retiro (término fijo)
+            OR: [
+              { endDate: null },
+              { endDate: { gt: change.terminationDate } },
+            ],
+          },
+          data: { endDate: change.terminationDate },
+        });
+      }
+
       if (employee.userId) {
         const membership = {
           companyId_userId: { companyId, userId: employee.userId },

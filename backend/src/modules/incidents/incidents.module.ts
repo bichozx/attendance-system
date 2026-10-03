@@ -22,5 +22,7 @@ import {
     TimesheetService,
     { provide: IncidentRepository, useClass: PrismaIncidentRepository },
   ],
+  // Reportes exporta el consolidado
+  exports: [TimesheetService],
 })
 export class IncidentsModule {}

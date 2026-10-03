@@ -25,6 +25,7 @@ import { RequirePermissions } from '../../../shared/auth/require-permissions.dec
 import { ApiErrors } from '../../../shared/presentation/api-errors.decorator';
 import { ApiPaginatedResponse } from '../../../shared/presentation/api-paginated-response.decorator';
 import { BEARER_AUTH } from '../../../shared/presentation/swagger';
+import { PasswordRecoveryService } from '../../auth/application/use-cases/password-recovery.service';
 import { CompanyUsersService } from '../application/company-users.service';
 import {
   ChangeUserRoleDto,
@@ -34,7 +35,6 @@ import {
   CreateUserResponseDto,
   ListUsersQueryDto,
 } from './dto/user.dto';
-import { PasswordRecoveryService } from '../../auth/application/use-cases/password-recovery.service';
 
 @ApiTags('Usuarios')
 @ApiBearerAuth(BEARER_AUTH)

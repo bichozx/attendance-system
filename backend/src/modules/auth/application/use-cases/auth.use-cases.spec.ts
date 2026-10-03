@@ -1,4 +1,5 @@
 import {
+  AccountLockedError,
   CompanySelectionRequiredError,
   InvalidCredentialsError,
   InvalidRefreshTokenError,
@@ -13,7 +14,12 @@ import type {
 } from '../../domain/auth.types';
 import type { AuthenticatedUser } from '../../../../shared/auth/authenticated-user';
 import { AccessTokenService } from '../../domain/ports/access-token.service';
+import {
+  lockAfterFailure,
+  SecurityPolicy,
+} from '../../domain/account-security';
 import { AuthRepository } from '../../domain/ports/auth.repository';
+import { AccountEmails } from '../account-emails';
 import { PasswordHasher } from '../../domain/ports/password-hasher';
 import { CryptoRefreshTokenCodec } from '../../infrastructure/crypto-refresh-token.codec';
 import { AuthSettings } from '../auth.settings';
@@ -64,6 +70,42 @@ class InMemoryAuthRepository extends AuthRepository {
     for (const s of this.sessions.values())
       if (s.userId === userId) s.revokedAt = new Date();
   }
+  async registerFailedLogin(userId: string, policy: SecurityPolicy, now: Date) {
+    const u = this.users.find((x) => x.id === userId)!;
+    u.failedLoginAttempts++;
+    const lockedUntil = lockAfterFailure(u.failedLoginAttempts, policy, now);
+    if (lockedUntil) Object.assign(u, { lockedUntil, failedLoginAttempts: 0 });
+    return { attempts: u.failedLoginAttempts, lockedUntil };
+  }
+  async clearLoginFailures(userId: string) {
+    Object.assign(
+      this.users.find((x) => x.id === userId)!,
+      {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    );
+  }
+  async updatePassword() {}
+  async revokeOtherSessions() {
+    return 0;
+  }
+  async listActiveSessions() {
+    return [];
+  }
+  async revokeUserSession() {
+    return false;
+  }
+  async countResetTokensSince() {
+    return 0;
+  }
+  async createResetToken() {}
+  async findResetToken() {
+    return null;
+  }
+  async consumeResetToken() {
+    return false;
+  }
 }
 
 class FakePasswordHasher extends PasswordHasher {
@@ -94,6 +136,9 @@ const user: AuthUser = {
   lastName: 'Admin',
   status: 'ACTIVE',
   isPlatformAdmin: false,
+  mustChangePassword: false,
+  failedLoginAttempts: 0,
+  lockedUntil: null,
 };
 
 const membership = (companyId: string, name: string): ActiveMembership => ({
@@ -115,7 +160,18 @@ function setup() {
     codec,
     settings,
   );
-  const login = new LoginUseCase(repository, new FakePasswordHasher(), issuer);
+  const emails = {
+    accountLocked: jest.fn(),
+    passwordChanged: jest.fn(),
+    passwordReset: jest.fn(),
+  };
+  const login = new LoginUseCase(
+    repository,
+    new FakePasswordHasher(),
+    issuer,
+    settings,
+    emails as unknown as AccountEmails,
+  );
   const refresh = new RefreshSessionUseCase(
     repository,
     codec,
@@ -123,7 +179,7 @@ function setup() {
     settings,
   );
   repository.users.push({ ...user });
-  return { repository, login, refresh };
+  return { repository, login, refresh, emails };
 }
 
 const client = { userAgent: 'jest', ipAddress: '127.0.0.1' };
@@ -182,6 +238,23 @@ describe('LoginUseCase', () => {
       client,
     });
     expect(result.company?.name).toBe('Otra');
+  });
+
+  it('bloquea la cuenta al 5.º intento fallido y avisa por correo', async () => {
+    const { login, emails } = setup();
+    for (let i = 0; i < 4; i++) {
+      await expect(
+        login.execute({ email: user.email, password: 'mala', client }),
+      ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    }
+    await expect(
+      login.execute({ email: user.email, password: 'mala', client }),
+    ).rejects.toBeInstanceOf(AccountLockedError);
+    // Bloqueada: ni con la contraseña correcta
+    await expect(
+      login.execute({ email: user.email, password: 'Secreta123', client }),
+    ).rejects.toBeInstanceOf(AccountLockedError);
+    expect(emails.accountLocked).toHaveBeenCalledTimes(1);
   });
 
   it('rechaza a un usuario sin empresas activas', async () => {

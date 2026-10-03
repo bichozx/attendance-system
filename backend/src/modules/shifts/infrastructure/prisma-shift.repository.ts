@@ -7,6 +7,7 @@ import {
   ShiftNotFoundError,
 } from '../domain/shift.errors';
 import { ShiftRepository, ShiftToCreate } from '../domain/shift.repository';
+import { ShiftChangeStaleError } from '../domain/shift-change.rules';
 import { Candidate, findConflicts } from '../domain/shift.rules';
 import type {
   BusySlot,
@@ -131,7 +132,14 @@ export class PrismaShiftRepository extends ShiftRepository {
         name: true,
         isActive: true,
         timezone: true,
-        company: { select: { timezone: true } },
+        company: {
+          select: {
+            timezone: true,
+            defaultBreakMinutes: true,
+            defaultEarlyClockInMinutes: true,
+            defaultLateToleranceMinutes: true,
+          },
+        },
       },
     });
     return row
@@ -140,6 +148,11 @@ export class PrismaShiftRepository extends ShiftRepository {
           name: row.name,
           isActive: row.isActive,
           timeZone: row.timezone ?? row.company.timezone,
+          defaults: {
+            breakMinutes: row.company.defaultBreakMinutes,
+            earlyClockInMinutes: row.company.defaultEarlyClockInMinutes,
+            lateToleranceMinutes: row.company.defaultLateToleranceMinutes,
+          },
         }
       : null;
   }
@@ -171,6 +184,26 @@ export class PrismaShiftRepository extends ShiftRepository {
       select: { id: true },
     });
     return row?.id ?? null;
+  }
+
+  async findApprovedTimeOff(
+    companyId: string,
+    employeeIds: string[],
+    from: Date,
+    to: Date,
+  ) {
+    const rows = await this.prisma.incident.findMany({
+      where: {
+        companyId,
+        employeeId: { in: employeeIds },
+        type: { in: ['SICK_LEAVE', 'PERMISSION'] },
+        status: 'APPROVED',
+        startsAt: { lt: to },
+        endsAt: { gt: from },
+      },
+      select: { employeeId: true, startsAt: true, endsAt: true },
+    });
+    return rows.map((r) => ({ ...r, endsAt: r.endsAt! }));
   }
 
   async findUserIdsByEmployee(companyId: string, employeeIds: string[]) {
@@ -350,6 +383,156 @@ export class PrismaShiftRepository extends ShiftRepository {
         reviewedAt: now,
       })),
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Cambios entre empleados (cubrir / intercambiar)
+  // ------------------------------------------------------------------
+
+  async previewConflicts(
+    companyId: string,
+    candidates: Candidate[],
+    vacating: string[],
+  ) {
+    if (candidates.length === 0) return [];
+    const busy = await this.busySlots(
+      this.prisma,
+      companyId,
+      candidates,
+      vacating,
+    );
+    return findConflicts(candidates, busy);
+  }
+
+  async applyMoves(
+    companyId: string,
+    moves: {
+      vacateAssignmentId: string;
+      employeeId: string;
+      shiftId: string;
+    }[],
+    actorUserId: string,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // 1) Bloquear a TODOS los involucrados (quien entrega y quien recibe), en orden fijo
+      const vacated = await tx.shiftAssignment.findMany({
+        where: {
+          id: { in: moves.map((m) => m.vacateAssignmentId) },
+          companyId,
+        },
+        select: { id: true, employeeId: true },
+      });
+      const people = [
+        ...new Set([
+          ...vacated.map((v) => v.employeeId),
+          ...moves.map((m) => m.employeeId),
+        ]),
+      ].sort();
+      for (const employeeId of people) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`shift-employee:${employeeId}`}, 0))`;
+      }
+
+      // 2) Liberar las asignaciones de origen: deben seguir activas y sin empezar
+      const now = new Date();
+      for (const move of moves) {
+        const { count } = await tx.shiftAssignment.updateMany({
+          where: {
+            id: move.vacateAssignmentId,
+            companyId,
+            status: 'ASSIGNED',
+            shift: { status: 'SCHEDULED', startsAt: { gt: now } },
+          },
+          data: { status: 'CANCELLED' },
+        });
+        if (count !== 1) throw new ShiftChangeStaleError();
+      }
+
+      // 3) Validar cruces con lo que queda (las liberadas ya no cuentan)
+      const shifts = new Map(
+        (
+          await tx.shift.findMany({
+            where: { id: { in: moves.map((m) => m.shiftId) }, companyId },
+            select: { id: true, startsAt: true, endsAt: true },
+          })
+        ).map((s) => [s.id, s]),
+      );
+      const candidates: Candidate[] = moves.map((m) => ({
+        employeeId: m.employeeId,
+        startsAt: shifts.get(m.shiftId)!.startsAt,
+        endsAt: shifts.get(m.shiftId)!.endsAt,
+      }));
+      const conflicts = findConflicts(
+        candidates,
+        await this.busySlots(tx, companyId, candidates, []),
+      );
+      if (conflicts.length) throw new ScheduleConflictError(conflicts);
+
+      // 4) Asignar (reactivando si la persona ya estuvo en ese turno)
+      for (const move of moves) {
+        const previous = await tx.shiftAssignment.findUnique({
+          where: {
+            shiftId_employeeId: {
+              shiftId: move.shiftId,
+              employeeId: move.employeeId,
+            },
+          },
+          select: { id: true },
+        });
+        if (previous) {
+          await tx.shiftAssignment.update({
+            where: { id: previous.id },
+            data: { status: 'ASSIGNED', assignedById: actorUserId },
+          });
+        } else {
+          await tx.shiftAssignment.create({
+            data: {
+              companyId,
+              shiftId: move.shiftId,
+              employeeId: move.employeeId,
+              assignedById: actorUserId,
+            },
+          });
+        }
+      }
+    });
+  }
+
+  /** Turnos activos de los candidatos en el rango, excluyendo asignaciones a liberar. */
+  private async busySlots(
+    db: Tx | PrismaService,
+    companyId: string,
+    candidates: Candidate[],
+    vacating: string[],
+  ) {
+    const employeeIds = [...new Set(candidates.map((c) => c.employeeId))];
+    const from = new Date(
+      Math.min(...candidates.map((c) => c.startsAt.getTime())),
+    );
+    const to = new Date(Math.max(...candidates.map((c) => c.endsAt.getTime())));
+    const rows = await db.shiftAssignment.findMany({
+      where: {
+        companyId,
+        employeeId: { in: employeeIds },
+        status: 'ASSIGNED',
+        id: { notIn: vacating },
+        shift: {
+          status: 'SCHEDULED',
+          startsAt: { lt: to },
+          endsAt: { gt: from },
+        },
+      },
+      select: {
+        employeeId: true,
+        shiftId: true,
+        shift: { select: { startsAt: true, endsAt: true } },
+      },
+    });
+    return rows.map((r) => ({
+      employeeId: r.employeeId,
+      shiftId: r.shiftId,
+      startsAt: r.shift.startsAt,
+      endsAt: r.shift.endsAt,
+    }));
   }
 
   // ------------------------------------------------------------------

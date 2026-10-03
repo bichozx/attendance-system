@@ -99,7 +99,12 @@ export class ScheduleConflictError extends DomainError {
 }
 
 export type UnavailableReason =
-  'NOT_FOUND' | 'NOT_ACTIVE' | 'NOT_HIRED_YET' | 'TERMINATED';
+  | 'NOT_FOUND'
+  | 'NOT_ACTIVE'
+  | 'NOT_HIRED_YET'
+  | 'TERMINATED'
+  /** Tiene incapacidad o permiso aprobado en ese horario. */
+  | 'ON_TIME_OFF';
 
 export class EmployeesNotAvailableError extends DomainError {
   readonly code = 'EMPLOYEES_NOT_AVAILABLE';

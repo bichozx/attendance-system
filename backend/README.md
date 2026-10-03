@@ -4,11 +4,12 @@ Backend REST multiempresa para administrar usuarios, empleados, sedes, turnos y 
 
 ## Estado de auditoría
 
-La funcionalidad principal para el cliente móvil ya está modelada. La compilación pasa tras corregir las rutas de importación; las pruebas todavía deben quedar verdes antes de iniciar la integración.
+La funcionalidad principal para el cliente móvil ya está modelada. La compilación y las pruebas unitarias pasan; las pruebas e2e requieren una base PostgreSQL aislada.
 
-1. **Verificado: compilación.** Se corrigieron las rutas al helper compartido `src/shared/presentation/date-range.ts`. `pnpm run build` pasa.
-2. **Bloqueante: pruebas.** Con Node `v22.19.0`, Jest falla al cargar módulos ESM de NestJS (`Must use import to load ES Module`). La prueba unitaria reporta 78 pruebas exitosas en 7 suites y una suite que no inicia; e2e tampoco inicia. Revisar la configuración ESM de Jest o usar un runtime compatible con Jest y las dependencias instaladas.
-3. **Mantenimiento.** `pnpm run lint` termina con advertencias por imports/parámetros sin uso y patrones de spread/métodos sin enlazar. No bloquean lint, pero conviene limpiarlas antes de exigirlo en CI.
+1. **Verificado: compilación.** `pnpm run build` pasa.
+2. **Verificado: pruebas unitarias.** Con Node `v22.19.0`, las 21 suites y 198 pruebas pasan con `pnpm test -- --runInBand`.
+3. **Pendiente: pruebas e2e.** No se verificaron en esta corrida; requieren la base PostgreSQL de pruebas descrita en `test/e2e/README.md`.
+4. **Mantenimiento.** `pnpm run lint` termina con advertencias por imports/parámetros sin uso y patrones de spread/métodos sin enlazar. No bloquean lint, pero conviene limpiarlas antes de exigirlo en CI.
 
 Los controladores y módulos que ya estaban sin seguimiento en el workspace se conservaron sin cambios.
 
@@ -31,7 +32,7 @@ REFRESH_TOKEN_TTL_DAYS=30
 ATTENDANCE_JOB_INTERVAL_SECONDS=300
 ```
 
-`DATABASE_URL` y `JWT_ACCESS_SECRET` son obligatorios. Los demás valores tienen defaults en el código. `CORS_ORIGINS` acepta orígenes separados por coma y se usa principalmente para clientes web; apps nativas no suelen estar sujetas a CORS, pero necesitan una dirección de backend accesible desde el dispositivo.
+`DATABASE_URL` y `JWT_ACCESS_SECRET` son obligatorios. Al arrancar, la aplicación valida las variables configuradas y falla indicando los valores inválidos. `CORS_ORIGINS` acepta únicamente orígenes HTTP(S) completos, sin rutas ni comodines, separados por coma; se usa principalmente para clientes web. En producción Swagger está desactivado por defecto. `TRUST_PROXY_HOPS` debe coincidir con el número real de proxies confiables delante de la API. Apps nativas no suelen estar sujetas a CORS, pero necesitan una dirección de backend accesible desde el dispositivo.
 
 ## Instalación y ejecución
 
@@ -103,10 +104,10 @@ pnpm test -- --runInBand
 pnpm run test:e2e -- --runInBand
 ```
 
-Resultados observados: build pasa; lint completa con advertencias; unit y e2e están limitados por la carga ESM de Jest bajo Node 22.19.0. Repetir los cuatro comandos después de resolver Jest, antes de integrar el cliente móvil.
+Resultados observados: build y pruebas unitarias pasan; lint completa con advertencias. Ejecutar las pruebas e2e con la base de pruebas antes de integrar el cliente móvil.
 
 ## Próximos pasos recomendados
 
-1. Resolver ESM de Jest y recuperar pruebas unitarias/e2e en CI.
+1. Ejecutar y estabilizar las pruebas e2e en CI con una base de datos aislada de pruebas.
 2. Versionar el OpenAPI generado como contrato del cliente; agregar pruebas de contrato para auth, marcaciones y sync.
 3. Implementar primero login/empresa, estado y turnos; después marcación online, permisos de ubicación, cola offline y reintentos idempotentes.

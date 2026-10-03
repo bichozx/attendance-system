@@ -26,7 +26,7 @@ import { BEARER_AUTH } from '../../../shared/presentation/swagger';
 import { AttendanceQueriesService } from '../application/attendance-queries.service';
 import { AttendanceReviewService } from '../application/attendance-review.service';
 import { AttendancePresenter } from './attendance.presenter';
-
+import { assertRange } from '../../../shared/presentation/date-range';
 import {
   AdjustAttendanceDto,
   AttendanceDetailResponseDto,
@@ -34,7 +34,6 @@ import {
   ListAttendanceQueryDto,
   ReviewAttendanceDto,
 } from './dto/attendance.dto';
-import { assertRange } from '../../../shared/presentation/date-range';
 
 const toDate = (v: string | null | undefined) =>
   v === undefined ? undefined : v === null ? null : new Date(v);

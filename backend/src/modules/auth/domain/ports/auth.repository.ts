@@ -1,3 +1,4 @@
+import type { SecurityPolicy } from '../account-security';
 import type {
   ActiveMembership,
   AuthUser,
@@ -6,8 +7,6 @@ import type {
   SessionRecord,
   SessionSummary,
 } from '../auth.types';
-
-import { SecurityPolicy } from '../account-security';
 
 /** Contrato de persistencia de Auth. La implementación vive en infraestructura (Prisma). */
 export abstract class AuthRepository {

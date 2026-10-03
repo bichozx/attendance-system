@@ -23,7 +23,7 @@ import { BEARER_AUTH } from '../../../shared/presentation/swagger';
 import { AttendanceQueriesService } from '../application/attendance-queries.service';
 import { ClockService } from '../application/clock.service';
 import { AttendancePresenter } from './attendance.presenter';
-
+import { assertRange } from '../../../shared/presentation/date-range';
 import {
   AttendanceResponseDto,
   ClockInDto,
@@ -34,7 +34,6 @@ import {
   SyncDto,
   SyncResponseDto,
 } from './dto/attendance.dto';
-import { assertRange } from '../../../shared/presentation/date-range';
 
 const toCommand = (
   type: 'CLOCK_IN' | 'CLOCK_OUT',

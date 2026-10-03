@@ -41,6 +41,8 @@ export abstract class CompanyUserRepository {
   ): Promise<void>;
 
   /** Cierra las sesiones del usuario en esta empresa (no en las demás). */
+  abstract companyName(companyId: string): Promise<string>;
+
   abstract revokeCompanySessions(
     companyId: string,
     userId: string,

@@ -1,3 +1,7 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service';
+import type { SecurityPolicy } from '../domain/account-security';
+import { lockAfterFailure } from '../domain/account-security';
 import type {
   ActiveMembership,
   AuthUser,
@@ -6,21 +10,7 @@ import type {
   SessionRecord,
   SessionSummary,
 } from '../domain/auth.types';
-import { SecurityPolicy, lockAfterFailure } from '../domain/account-security';
-
 import { AuthRepository } from '../domain/ports/auth.repository';
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service';
-
-// const USER_SELECT = {
-//   id: true,
-//   email: true,
-//   passwordHash: true,
-//   firstName: true,
-//   lastName: true,
-//   status: true,
-//   isPlatformAdmin: true,
-// } as const;
 
 const USER_SELECT = {
   id: true,

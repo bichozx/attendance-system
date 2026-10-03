@@ -155,7 +155,7 @@ export class ShiftsService {
 
     const now = new Date();
     const items: ShiftToCreate[] = input.shifts.map((s) => {
-      const timing = this.buildTiming(s, store.timeZone, now);
+      const timing = this.buildTiming(s, store.timeZone, now, store.defaults);
       if (period) assertWithinPeriod(s.date, period);
       return {
         shift: {
@@ -174,6 +174,8 @@ export class ShiftsService {
         item.employeeIds.map((employeeId) => ({
           employeeId,
           date: input.shifts[i].date,
+          startsAt: item.shift.startsAt,
+          endsAt: item.shift.endsAt,
         })),
       ),
     );
@@ -246,12 +248,16 @@ export class ShiftsService {
       );
     }
     const assigned = activeAssignments(before);
-    if (local.date !== current.date) {
-      await this.assertAvailable(
-        actor.companyId,
-        assigned.map((a) => ({ employeeId: a.employeeId, date: local.date })),
-      );
-    }
+    // Nueva fecha u horario: revalidar estado laboral e incapacidades/permisos
+    await this.assertAvailable(
+      actor.companyId,
+      assigned.map((a) => ({
+        employeeId: a.employeeId,
+        date: local.date,
+        startsAt: timing.startsAt,
+        endsAt: timing.endsAt,
+      })),
+    );
 
     await this.shifts.reschedule(actor.companyId, id, timing, input.notes);
     const after = await this.get(actor.companyId, id);
@@ -345,7 +351,12 @@ export class ShiftsService {
     const unique = [...new Set(employeeIds)];
     await this.assertAvailable(
       actor.companyId,
-      unique.map((employeeId) => ({ employeeId, date })),
+      unique.map((employeeId) => ({
+        employeeId,
+        date,
+        startsAt: shift.startsAt,
+        endsAt: shift.endsAt,
+      })),
     );
 
     const added = await this.shifts.assign(
@@ -412,14 +423,15 @@ export class ShiftsService {
     input: ShiftInput,
     timeZone: string,
     now: Date,
+    defaults: SchedulingStore['defaults'] = DEFAULTS,
   ): ShiftTiming {
     const timing: ShiftTiming = {
       ...toUtcRange(input, timeZone),
-      breakMinutes: input.breakMinutes ?? DEFAULTS.breakMinutes,
+      breakMinutes: input.breakMinutes ?? defaults.breakMinutes,
       earlyClockInMinutes:
-        input.earlyClockInMinutes ?? DEFAULTS.earlyClockInMinutes,
+        input.earlyClockInMinutes ?? defaults.earlyClockInMinutes,
       lateToleranceMinutes:
-        input.lateToleranceMinutes ?? DEFAULTS.lateToleranceMinutes,
+        input.lateToleranceMinutes ?? defaults.lateToleranceMinutes,
     };
     assertShiftTiming(timing);
     if (timing.startsAt <= now) {
@@ -472,25 +484,20 @@ export class ShiftsService {
     return shift;
   }
 
+  /**
+   * Estado laboral del empleado en la fecha + incapacidades/permisos aprobados
+   * que se crucen con el horario del turno.
+   */
   private async assertAvailable(
     companyId: string,
-    requests: { employeeId: string; date: string }[],
+    requests: {
+      employeeId: string;
+      date: string;
+      startsAt: Date;
+      endsAt: Date;
+    }[],
   ) {
-    if (requests.length === 0) return;
-    const ids = [...new Set(requests.map((r) => r.employeeId))];
-    const employees = new Map(
-      (await this.shifts.findEmployees(companyId, ids)).map((e) => [e.id, e]),
-    );
-
-    const unavailable = new Map<string, UnavailableReason>();
-    for (const { employeeId, date } of requests) {
-      const employee = employees.get(employeeId);
-      const reason = employee
-        ? unavailabilityReason(employee, parseDateOnly(date))
-        : 'NOT_FOUND';
-      if (reason && !unavailable.has(employeeId))
-        unavailable.set(employeeId, reason);
-    }
+    const unavailable = await this.availabilityIssues(companyId, requests);
     if (unavailable.size) {
       throw new EmployeesNotAvailableError(
         [...unavailable].map(([employeeId, reason]) => ({
@@ -499,6 +506,58 @@ export class ShiftsService {
         })),
       );
     }
+  }
+
+  /**
+   * Motivos por los que cada empleado NO puede tomar esos horarios: estado laboral
+   * en la fecha + incapacidades/permisos aprobados que se crucen. Vacío = todos pueden.
+   */
+  async availabilityIssues(
+    companyId: string,
+    requests: {
+      employeeId: string;
+      date: string;
+      startsAt: Date;
+      endsAt: Date;
+    }[],
+  ): Promise<Map<string, UnavailableReason>> {
+    const unavailable = new Map<string, UnavailableReason>();
+    if (requests.length === 0) return unavailable;
+    const ids = [...new Set(requests.map((r) => r.employeeId))];
+    const employees = new Map(
+      (await this.shifts.findEmployees(companyId, ids)).map((e) => [e.id, e]),
+    );
+    const from = new Date(
+      Math.min(...requests.map((r) => r.startsAt.getTime())),
+    );
+    const to = new Date(Math.max(...requests.map((r) => r.endsAt.getTime())));
+    const timeOff = await this.shifts.findApprovedTimeOff(
+      companyId,
+      ids,
+      from,
+      to,
+    );
+
+    for (const r of requests) {
+      if (unavailable.has(r.employeeId)) continue;
+      const employee = employees.get(r.employeeId);
+      let reason: UnavailableReason | null = employee
+        ? unavailabilityReason(employee, parseDateOnly(r.date))
+        : 'NOT_FOUND';
+      if (
+        !reason &&
+        timeOff.some(
+          (t) =>
+            t.employeeId === r.employeeId &&
+            t.startsAt < r.endsAt &&
+            r.startsAt < t.endsAt,
+        )
+      ) {
+        reason = 'ON_TIME_OFF';
+      }
+      if (reason) unavailable.set(r.employeeId, reason);
+    }
+    return unavailable;
   }
 
   private async announceAssignments(

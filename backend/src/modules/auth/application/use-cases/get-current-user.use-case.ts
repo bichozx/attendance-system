@@ -31,6 +31,7 @@ export class GetCurrentUserUseCase {
         firstName: user.firstName,
         lastName: user.lastName,
         isPlatformAdmin: user.isPlatformAdmin,
+        mustChangePassword: user.mustChangePassword,
       },
       company: membership
         ? {

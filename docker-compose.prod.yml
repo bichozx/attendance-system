@@ -1,0 +1,55 @@
+# Despliegue de referencia en un solo servidor:
+#   cp backend/.env.production.example backend/.env.production   (y complételo)
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Orden: postgres y redis sanos → migraciones → API.
+name: asistencia
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: attendance
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+      POSTGRES_DB: attendance
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendance -d attendance"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"] # solo contadores: no necesita persistir
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: { context: ./backend, target: migrator }
+    environment:
+      DATABASE_URL: postgresql://attendance:${POSTGRES_PASSWORD}@postgres:5432/attendance
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: { context: ./backend, target: runtime }
+    restart: unless-stopped
+    env_file: ./backend/.env.production
+    environment:
+      DATABASE_URL: postgresql://attendance:${POSTGRES_PASSWORD}@postgres:5432/attendance
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

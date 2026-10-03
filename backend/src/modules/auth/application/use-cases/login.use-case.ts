@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  AccountLockedError,
   CompanyAccessDeniedError,
   CompanySelectionRequiredError,
   InvalidCredentialsError,
@@ -9,6 +10,9 @@ import {
 import type { ActiveMembership } from '../../domain/auth.types';
 import { AuthRepository } from '../../domain/ports/auth.repository';
 import { PasswordHasher } from '../../domain/ports/password-hasher';
+import { isLocked, secondsUntil } from '../../domain/account-security';
+import { AccountEmails } from '../account-emails';
+import { AuthSettings } from '../auth.settings';
 import type {
   ActiveCompany,
   AuthTokens,
@@ -36,19 +40,42 @@ export class LoginUseCase {
     private readonly repository: AuthRepository,
     private readonly passwords: PasswordHasher,
     private readonly sessions: SessionIssuer,
+    private readonly settings: AuthSettings,
+    private readonly emails: AccountEmails,
   ) {}
 
   async execute(command: LoginCommand): Promise<LoginResult> {
     const email = command.email.trim().toLowerCase();
     const user = await this.repository.findUserByEmail(email);
+    const now = new Date();
+
+    // Cuenta bloqueada: ni siquiera se verifica la contraseña
+    if (user && isLocked(user.lockedUntil, now)) {
+      throw new AccountLockedError(secondsUntil(user.lockedUntil!, now));
+    }
 
     // Siempre se verifica (aunque el usuario no exista) para no filtrar por tiempo qué correos existen.
     const passwordOk = await this.passwords.verify(
       user?.passwordHash ?? null,
       command.password,
     );
-    if (!user || !passwordOk) throw new InvalidCredentialsError();
+    if (!user || !passwordOk) {
+      if (user) {
+        const { lockedUntil } = await this.repository.registerFailedLogin(
+          user.id,
+          this.settings.security,
+          now,
+        );
+        if (lockedUntil) {
+          this.emails.accountLocked(user);
+          throw new AccountLockedError(secondsUntil(lockedUntil, now));
+        }
+      }
+      throw new InvalidCredentialsError();
+    }
     if (user.status !== 'ACTIVE') throw new UserNotActiveError();
+    if (user.failedLoginAttempts > 0)
+      await this.repository.clearLoginFailures(user.id);
 
     const memberships = await this.repository.findActiveMemberships(user.id);
     const membership = this.selectMembership(
@@ -72,6 +99,7 @@ export class LoginUseCase {
         firstName: user.firstName,
         lastName: user.lastName,
         isPlatformAdmin: user.isPlatformAdmin,
+        mustChangePassword: user.mustChangePassword,
       },
       company: membership
         ? {

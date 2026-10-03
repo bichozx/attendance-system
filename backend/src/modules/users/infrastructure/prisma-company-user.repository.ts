@@ -167,4 +167,12 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
       data: { revokedAt: new Date() },
     });
   }
+
+  async companyName(companyId: string): Promise<string> {
+    const c = await this.prisma.company.findUniqueOrThrow({
+      where: { id: companyId },
+      select: { name: true },
+    });
+    return c.name;
+  }
 }

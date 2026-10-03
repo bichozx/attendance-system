@@ -193,7 +193,8 @@ export interface ClockInEvaluation {
   allowed: boolean;
   rejection: ClockInRejection | null;
   /**
-   * Minutos de tardanza, contados desde la hora de inicio (no desde el fin de la tolerancia).
+   * Minutos completos de tardanza, contados desde la hora de inicio (no desde el fin de
+   * la tolerancia). 14:20:59 con inicio 14:00 → 20.
    * Si llega dentro de la tolerancia, es 0.
    */
   lateMinutes: number;
@@ -218,7 +219,7 @@ export function evaluateClockIn(
 
   const late =
     now > window.lateAfter
-      ? Math.ceil((now.getTime() - shift.startsAt.getTime()) / MINUTE)
+      ? Math.floor((now.getTime() - shift.startsAt.getTime()) / MINUTE)
       : 0;
   return result(null, late);
 }

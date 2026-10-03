@@ -6,4 +6,6 @@ export interface AuthenticatedUser {
   companyId: string | null;
   isPlatformAdmin: boolean;
   permissions: string[];
+  /** La cuenta tiene una contraseña temporal pendiente de cambio. */
+  mustChangePassword: boolean;
 }
