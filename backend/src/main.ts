@@ -7,10 +7,11 @@
 // }
 // void bootstrap();
 
-import { AppModule } from './app.module';
-import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger, RequestMethod } from '@nestjs/common';
+
+import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { setupSwagger } from './shared/presentation/swagger';
@@ -50,6 +51,7 @@ async function bootstrap() {
   const warnings = config.get<string[]>('warnings') ?? [];
   for (const warning of warnings) logger.warn(warning);
 
-  await app.listen(Number(config.get<string>('PORT') ?? 3000));
+  //await app.listen(Number(config.get<string>('PORT') ?? 3000));
+  await app.listen(Number(config.get<string>('PORT') ?? 3000), '0.0.0.0');
 }
 void bootstrap();

@@ -49,6 +49,14 @@ La API local usa `http://localhost:3000/api/v1`. Swagger está en `http://localh
 
 Para emuladores, configura la URL base del cliente según el entorno: Android Emulator suele alcanzar el host mediante `10.0.2.2`; iOS Simulator suele poder usar `localhost`; un dispositivo físico debe usar la IP LAN del equipo donde corre el backend.
 
+### Datos demo para probar los flujos
+
+Después de aplicar las migraciones, ejecuta `pnpm exec prisma db seed`. En entornos distintos de producción, el seed crea las cuentas demo y un escenario operativo idempotente con turnos futuros, asistencias completadas/incompletas/ausentes, eventos de marcación y novedades pendientes/aprobadas.
+
+Las cuentas demo usan `Demo123!` por defecto (puede cambiarse con `SEED_DEMO_PASSWORD`). El administrador es `admin@demo.local`; los empleados son `empleado@demo.local`, `ana@demo.local`, `luis@demo.local` y `sofia@demo.local`. También se crea la supervisora `laura@demo.local`.
+
+Para sembrar solo catálogos y cuentas, define `SEED_DEMO_SCENARIOS=false` antes de ejecutar el seed. El ejecutor E2E lo hace automáticamente para conservar la base limpia que cada suite necesita.
+
 ## API para la app móvil
 
 Las rutas se agregan a `/api/v1`. Salvo login y refresh, requieren `Authorization: Bearer <accessToken>` y permisos del usuario para la empresa activa.

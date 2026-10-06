@@ -118,7 +118,11 @@ async function runSuite(name) {
 
   execSync(RESET_CMD, {
     cwd: ROOT,
-    env: { ...process.env, DATABASE_URL: DB_URL },
+    env: {
+      ...process.env,
+      DATABASE_URL: DB_URL,
+      SEED_DEMO_SCENARIOS: 'false',
+    },
     stdio: 'pipe',
     shell: true,
   });

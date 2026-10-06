@@ -72,7 +72,8 @@ export function validateEnv(env: Env): Env & EnvWarnings {
   }
 
   int('PORT', 1, 65535);
-  int('JWT_ACCESS_TTL_SECONDS', 60, 86_400);
+  // En pruebas se usan tokens de pocos segundos para verificar la renovación
+  int('JWT_ACCESS_TTL_SECONDS', prod ? 60 : 1, 86_400);
   int('REFRESH_TOKEN_TTL_DAYS', 1, 365);
   int('AUTH_MAX_FAILED_LOGINS', 1, 100);
   int('AUTH_LOCK_MINUTES', 1, 1_440);

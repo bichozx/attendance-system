@@ -455,7 +455,8 @@ export class ShiftChangeRequestsService {
   // Validaciones
   // ------------------------------------------------------------------
 
-  private async myEmployeeId(actor: Actor): Promise<string> {
+  /** Id de empleado de quien consume la app (para saber si pidió o le piden). */
+  async myEmployeeId(actor: Actor): Promise<string> {
     const id = await this.shiftsRepo.findEmployeeIdByUser(
       actor.companyId,
       actor.userId,

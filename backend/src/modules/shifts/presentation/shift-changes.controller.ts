@@ -43,6 +43,12 @@ const page = (p: Page<ShiftChangeView>) => ({
   items: p.items.map(ShiftChangePresenter.view),
 });
 
+/** Para la app: ¿la pedí yo o me la piden? */
+const withRole = (v: ShiftChangeView, role: 'REQUESTER' | 'PEER') => ({
+  ...ShiftChangePresenter.view(v),
+  myRole: role,
+});
+
 @ApiTags('Mis cambios de turno (app móvil)')
 @ApiBearerAuth(BEARER_AUTH)
 @ApiErrors(401, { 403: 'FORBIDDEN | NOT_AN_EMPLOYEE' })
@@ -89,9 +95,18 @@ export class MyShiftChangesController {
     @CurrentActor() actor: Actor,
     @Query() q: ListShiftChangesQueryDto,
   ) {
-    return page(
-      await this.changes.myList(actor, { stage: q.stage }, q.toPageRequest()),
+    const me = await this.changes.myEmployeeId(actor);
+    const result = await this.changes.myList(
+      actor,
+      { stage: q.stage },
+      q.toPageRequest(),
     );
+    return {
+      ...result,
+      items: result.items.map((v) =>
+        withRole(v, v.requester.employeeId === me ? 'REQUESTER' : 'PEER'),
+      ),
+    };
   }
 
   @Post()
@@ -110,7 +125,7 @@ export class MyShiftChangesController {
     @CurrentActor() actor: Actor,
     @Body() dto: CreateShiftChangeDto,
   ) {
-    return ShiftChangePresenter.view(await this.changes.request(actor, dto));
+    return withRole(await this.changes.request(actor, dto), 'REQUESTER');
   }
 
   @Post(':id/respond')
@@ -127,8 +142,9 @@ export class MyShiftChangesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RespondShiftChangeDto,
   ) {
-    return ShiftChangePresenter.view(
+    return withRole(
       await this.changes.respond(actor, id, dto.accept, dto.notes ?? null),
+      'PEER',
     );
   }
 
@@ -142,7 +158,7 @@ export class MyShiftChangesController {
     @CurrentActor() actor: Actor,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return ShiftChangePresenter.view(await this.changes.cancel(actor, id));
+    return withRole(await this.changes.cancel(actor, id), 'REQUESTER');
   }
 }
 

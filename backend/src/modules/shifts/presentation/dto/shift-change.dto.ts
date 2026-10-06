@@ -1,4 +1,3 @@
-import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
@@ -8,7 +7,9 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+
 import { PaginationQueryDto } from '../../../../shared/presentation/pagination-query.dto';
+import { Transform } from 'class-transformer';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -127,6 +128,8 @@ export class ShiftChangeResponseDto {
   peerRespondedAt: Date | null;
   reviewedAt: Date | null;
   createdAt: Date;
+  /** Solo en /me: REQUESTER = la pedí yo; PEER = me la piden a mí. */
+  myRole?: 'REQUESTER' | 'PEER';
 }
 
 export class SwapOptionDto {

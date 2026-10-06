@@ -70,6 +70,20 @@ describe('validateEnv', () => {
     expect(env.warnings.join(' ')).toMatch(/REDIS_URL/);
   });
 
+  it('tokens de pocos segundos: permitidos en pruebas, no en producción', () => {
+    expect(problems({ ...ok, JWT_ACCESS_TTL_SECONDS: '3' })).toEqual([]);
+    expect(
+      problems({
+        ...ok,
+        NODE_ENV: 'production',
+        MAIL_TRANSPORT: 'smtp',
+        SMTP_URL: 'smtps://x',
+        MAIL_FROM: 'a@b.c',
+        JWT_ACCESS_TTL_SECONDS: '3',
+      }),
+    ).toHaveLength(1);
+  });
+
   it('PASSWORD_RESET_URL debe tener {token}', () => {
     expect(
       problems({ ...ok, PASSWORD_RESET_URL: 'https://panel.com/reset' }),
