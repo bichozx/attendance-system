@@ -1,7 +1,8 @@
 # Despliegue de referencia en un solo servidor:
 #   cp backend/.env.production.example backend/.env.production   (y complételo)
 #   docker compose -f docker-compose.prod.yml up -d --build
-# Orden: postgres y redis sanos → migraciones → API.
+# Orden: postgres y redis sanos → migraciones → API → panel web.
+# El panel se construye desde ./web (otra carpeta: defina WEB_CONTEXT).
 name: asistencia
 
 services:
@@ -50,6 +51,18 @@ services:
       redis: { condition: service_healthy }
     ports:
       - "3000:3000"
+
+  web:
+    build: { context: "${WEB_CONTEXT:-./web}" }
+    restart: unless-stopped
+    environment:
+      # El panel habla con la API por la red interna; el navegador nunca ve los tokens
+      BACKEND_URL: http://api:3000/api/v1
+      # COOKIE_SECURE: "false"   # solo para probar por HTTP en la red local, nunca en público
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "3100:3100"
 
 volumes:
   pgdata:

@@ -127,6 +127,10 @@ export class DashboardPersonDto {
   /** @example "Carlos Pérez" */
   name: string;
   storeName: string;
+  /** Inicio y fin exactos (UTC): permiten dibujar turnos nocturnos sin ambigüedad. */
+  startsAt: Date;
+  endsAt: Date;
+  clockInAt: Date | null;
   /** @example "14:00" */
   shiftStart: string;
   shiftEnd: string;

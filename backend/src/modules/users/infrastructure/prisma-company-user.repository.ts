@@ -4,11 +4,12 @@ import { PageRequest, toSkipTake } from '../../../shared/application/page';
 import { isUniqueViolation } from '../../../shared/infrastructure/prisma/prisma-errors';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service';
 import { CompanyUserRepository } from '../domain/company-user.repository';
-import type {
-  CompanyUserFilter,
-  CompanyUserView,
-  MembershipStatus,
-  NewAccount,
+import {
+  INVITATION_PENDING,
+  type CompanyUserFilter,
+  type CompanyUserView,
+  type MembershipStatus,
+  type NewAccount,
 } from '../domain/company-user.types';
 import { UserAlreadyMemberError } from '../domain/user.errors';
 
@@ -26,6 +27,8 @@ const memberSelect = (companyId: string) =>
         phone: true,
         status: true,
         lastLoginAt: true,
+        // Solo para saber si la invitación sigue pendiente; nunca sale del repositorio
+        passwordHash: true,
         // Solo el empleado de ESTA empresa
         employees: { where: { companyId }, select: { id: true }, take: 1 },
       },
@@ -48,6 +51,7 @@ const toView = (row: MemberRow): CompanyUserView => ({
   employeeId: row.user.employees[0]?.id ?? null,
   lastLoginAt: row.user.lastLoginAt,
   memberSince: row.createdAt,
+  invitationPending: row.user.passwordHash === INVITATION_PENDING,
 });
 
 @Injectable()

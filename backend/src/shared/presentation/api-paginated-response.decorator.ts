@@ -1,14 +1,15 @@
 import { applyDecorators, Type } from '@nestjs/common';
-import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
+import { ApiExtraModels, ApiOkResponse, ApiProperty, getSchemaPath } from '@nestjs/swagger';
 
+// Anotaciones explícitas: el plugin de Swagger documenta solo las clases de archivos *.dto.ts
 export class PageMetaDto {
-  /** @example 57 */
+  @ApiProperty({ example: 57 })
   total: number;
-  /** @example 1 */
+  @ApiProperty({ example: 1 })
   page: number;
-  /** @example 20 */
+  @ApiProperty({ example: 20 })
   pageSize: number;
-  /** @example 3 */
+  @ApiProperty({ example: 3 })
   totalPages: number;
 }
 

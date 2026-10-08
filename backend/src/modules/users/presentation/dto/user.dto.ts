@@ -64,11 +64,12 @@ export class CreateUserDto {
   phone?: string;
 
   /**
-   * Contraseña inicial. Se ignora si el correo ya tiene cuenta
-   * (la persona entra con su contraseña de siempre).
+   * Contraseña temporal (opcional). Si se omite, se envía una invitación por correo.
+   * Se ignora si el correo ya tiene cuenta (la persona entra con su contraseña de siempre).
    */
+  @IsOptional()
   @IsStrongPassword()
-  password: string;
+  password?: string;
 
   @IsUUID()
   roleId: string;
@@ -110,10 +111,14 @@ export class CompanyUserResponseDto {
   employeeId: string | null;
   lastLoginAt: Date | null;
   memberSince: Date;
+  /** true = aún no ha creado su contraseña con el enlace de invitación. */
+  invitationPending: boolean;
 }
 
 export class CreateUserResponseDto {
   user: CompanyUserResponseDto;
   /** true = el correo ya tenía cuenta; entra con su contraseña actual. */
   existingAccount: boolean;
+  /** true = se le envió una invitación por correo para crear su contraseña. */
+  invited: boolean;
 }

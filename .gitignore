@@ -10,6 +10,11 @@ dist/
 build/
 coverage/
 
+# Next.js (panel web)
+.next/
+out/
+next-env.d.ts
+
 # TypeScript build cache
 *.tsbuildinfo
 

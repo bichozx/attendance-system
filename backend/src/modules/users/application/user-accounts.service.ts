@@ -6,13 +6,13 @@ import { PasswordHasher } from '../../auth/domain/ports/password-hasher';
 import { RoleNotFoundError } from '../../roles/domain/role.errors';
 import { RoleRepository } from '../../roles/domain/role.repository';
 import { CompanyUserRepository } from '../domain/company-user.repository';
+import { INVITATION_PENDING } from '../domain/company-user.types';
 import {
   PasswordRequiredError,
   UserAlreadyMemberError,
 } from '../domain/user.errors';
 
-/** Marca de cuenta invitada: no es un hash válido, así que ninguna contraseña coincide. */
-export const INVITATION_PENDING = '!invitation-pending';
+export { INVITATION_PENDING };
 
 export interface MemberInput {
   email: string;
@@ -22,6 +22,11 @@ export interface MemberInput {
   lastName: string;
   phone?: string | null;
   roleId: string;
+}
+
+export interface GrantResult extends MemberResult {
+  /** true si se envió una invitación por correo para que la persona cree su contraseña. */
+  invited: boolean;
 }
 
 export interface MemberResult {
@@ -55,11 +60,42 @@ export class UserAccountsService {
     return this.users.findUserIdByEmail(this.normalizeEmail(email));
   }
 
-  /** Igual que ensureMember, pero falla si ya era miembro. */
-  async addMember(actor: Actor, input: MemberInput): Promise<MemberResult> {
-    const result = await this.ensureMember(actor, input);
+  /** Igual que grantMember, pero falla si ya era miembro. */
+  async addMember(actor: Actor, input: MemberInput): Promise<GrantResult> {
+    const result = await this.grantMember(actor, input);
     if (result.alreadyMember) throw new UserAlreadyMemberError();
     return result;
+  }
+
+  /**
+   * Forma recomendada de dar acceso: sin contraseña → invitación por correo (nadie más
+   * conoce la clave); con contraseña → clave temporal que la persona cambia al entrar
+   * (para quien no puede recibir el correo en el momento).
+   */
+  async grantMember(actor: Actor, input: MemberInput): Promise<GrantResult> {
+    if (input.password) {
+      return { ...(await this.ensureMember(actor, input)), invited: false };
+    }
+    const result = await this.inviteMember(actor, input);
+    return {
+      ...result,
+      invited: !result.existingAccount && !result.alreadyMember,
+    };
+  }
+
+  /** Reenvía la invitación a quien aún no ha creado su contraseña (el enlace anterior sigue vivo). */
+  async resendInvitation(actor: Actor, userId: string): Promise<void> {
+    const member = await this.users.findById(actor.companyId, userId);
+    if (!member) return;
+    const companyName = await this.users.companyName(actor.companyId);
+    await this.recovery.invite(
+      userId,
+      companyName,
+      member.role.name.toLowerCase(),
+    );
+    await this.record(actor, userId, 'user.invitation_resent', {
+      email: member.email,
+    });
   }
 
   /** Garantiza que la persona sea miembro. Si ya lo era, no cambia su rol. */

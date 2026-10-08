@@ -157,7 +157,8 @@ export class EmployeesController {
   @ApiOperation({
     summary: 'Dar acceso a la app móvil',
     description:
-      'Crea la cuenta (o reutiliza la existente si el correo ya tiene una) y la vincula al empleado.',
+      'Crea la cuenta (o reutiliza la existente si el correo ya tiene una) y la vincula al empleado. ' +
+      'Sin contraseña se envía una invitación por correo; con contraseña, queda como clave temporal.',
   })
   @ApiCreatedResponse({ type: GrantAccessResponseDto })
   @ApiErrors(
@@ -176,6 +177,7 @@ export class EmployeesController {
     return {
       employee: EmployeePresenter.toResponse(result.employee),
       existingAccount: result.existingAccount,
+      invited: result.invited,
     };
   }
 }

@@ -161,9 +161,17 @@ function setup() {
     settings,
   );
   const emails = {
-    accountLocked: jest.fn(),
-    passwordChanged: jest.fn(),
-    passwordReset: jest.fn(),
+    // Registro simple de correos enviados (en modo ESM de Jest no existe el global `jest`)
+    sent: [] as string[],
+    accountLocked() {
+      this.sent.push('accountLocked');
+    },
+    passwordChanged() {
+      this.sent.push('passwordChanged');
+    },
+    passwordReset() {
+      this.sent.push('passwordReset');
+    },
   };
   const login = new LoginUseCase(
     repository,
@@ -254,7 +262,7 @@ describe('LoginUseCase', () => {
     await expect(
       login.execute({ email: user.email, password: 'Secreta123', client }),
     ).rejects.toBeInstanceOf(AccountLockedError);
-    expect(emails.accountLocked).toHaveBeenCalledTimes(1);
+    expect(emails.sent.filter((e) => e === 'accountLocked')).toHaveLength(1);
   });
 
   it('rechaza a un usuario sin empresas activas', async () => {

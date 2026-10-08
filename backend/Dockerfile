@@ -30,8 +30,10 @@ FROM build AS migrator
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
 
 # --- Solo dependencias de producción ---
+# prune-runtime-deps quita la CLI de Prisma, Prisma Studio y TypeScript, que @prisma/client
+# arrastra como "peer" aunque la API no los use al correr (~220 MB menos).
 FROM build AS prod-deps
-RUN pnpm prune --prod
+RUN pnpm prune --prod && node scripts/prune-runtime-deps.cjs
 
 # --- Imagen final ---
 FROM node:${NODE_VERSION}-slim AS runtime

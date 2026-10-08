@@ -63,7 +63,7 @@ jobs:
         run: pnpm exec tsc --noEmit -p tsconfig.json
 
       - name: Pruebas unitarias
-        run: pnpm test -- --ci
+        run: pnpm test --ci
 
       - name: Compilar
         run: pnpm run build

@@ -228,7 +228,8 @@ export class GrantAccessDto {
   email?: string;
 
   /**
-   * Contraseña inicial; obligatoria si el correo no tiene cuenta.
+   * Clave temporal (opcional). Si se omite y el correo no tiene cuenta, se envía una
+   * invitación por correo para que la persona cree su contraseña.
    * @example "Temporal2026"
    */
   @IsOptional()
@@ -333,6 +334,8 @@ export class GrantAccessResponseDto {
   employee: EmployeeResponseDto;
   /** true = el correo ya tenía cuenta; entra con su contraseña actual. */
   existingAccount: boolean;
+  /** true = se le envió una invitación por correo para crear su contraseña. */
+  invited: boolean;
 }
 
 export class PositionResponseDto {

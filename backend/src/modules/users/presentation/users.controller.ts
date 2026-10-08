@@ -79,8 +79,9 @@ export class UsersController {
   @ApiOperation({
     summary: 'Dar acceso a una persona',
     description:
-      'Si el correo no tiene cuenta, se crea con la contraseña inicial. ' +
-      'Si ya existe (por ejemplo, en otra empresa), solo se agrega a esta empresa.',
+      'Sin contraseña (recomendado): se envía una invitación por correo para que la persona ' +
+      'cree la suya. Con contraseña: se crea con esa clave temporal y debe cambiarla al entrar. ' +
+      'Si el correo ya tiene cuenta (por ejemplo, en otra empresa), solo se agrega a esta empresa.',
   })
   @ApiCreatedResponse({ type: CreateUserResponseDto })
   @ApiErrors(400, { 404: 'ROLE_NOT_FOUND', 409: 'USER_ALREADY_MEMBER' })
@@ -121,10 +122,12 @@ export class UsersController {
   @HttpCode(HttpStatus.ACCEPTED)
   @RequirePermissions('users.manage')
   @ApiOperation({
-    summary: 'Enviar enlace de recuperación de contraseña',
+    summary:
+      'Enviar enlace de recuperación de contraseña (o reenviar la invitación)',
     description:
       'El admin NO puede fijar la contraseña de otra persona: la cuenta puede ser compartida ' +
-      'con otras empresas. Solo dispara el correo de recuperación al titular.',
+      'con otras empresas. Solo dispara el correo de recuperación al titular. Si la persona ' +
+      'aún no ha creado su contraseña, se le reenvía la invitación.',
   })
   @ApiAcceptedResponse({
     description: 'Correo enviado (o descartado si superó el límite por hora)',
@@ -134,10 +137,17 @@ export class UsersController {
     @CurrentActor() actor: Actor,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.users.get(actor.companyId, id); // 404 si no es miembro de esta empresa
+    // 404 si no es miembro; si la invitación sigue pendiente, se reenvía la invitación
+    if ((await this.users.sendAccessLink(actor, id)) === 'invitation') {
+      return {
+        message: 'Se reenvió la invitación para que cree su contraseña.',
+        kind: 'invitation',
+      };
+    }
     await this.recovery.requestForUser(id, actor);
     return {
       message: 'Se envió el enlace de recuperación al correo del usuario.',
+      kind: 'reset',
     };
   }
 }

@@ -284,6 +284,12 @@ async function seedPlatformAdmin() {
 // 4. EMPRESA DEMO (solo desarrollo)
 // =====================================================================
 
+/**
+ * SEED_DEMO_SCENARIOS=false → seed mínimo (solo Carlos y Tienda Centro). Lo usan las pruebas
+ * automáticas, que crean su propio personal (Ana, Luis, Tienda Norte...) y chocarían con el demo.
+ */
+const MINIMAL_SEED = process.env.SEED_DEMO_SCENARIOS === 'false';
+
 async function seedDemoCompany(roles: Record<string, string>) {
   const devPassword = process.env.SEED_DEMO_PASSWORD ?? 'Demo123!';
   const passwordHash = await hash(devPassword);
@@ -323,7 +329,7 @@ async function seedDemoCompany(roles: Record<string, string>) {
     },
   });
 
-  const demoEmployees = [
+  const allDemoEmployees = [
     {
       email: 'empleado@demo.local',
       firstName: 'Carlos',
@@ -395,6 +401,7 @@ async function seedDemoCompany(roles: Record<string, string>) {
       },
     },
   ];
+  const demoEmployees = MINIMAL_SEED ? allDemoEmployees.slice(0, 1) : allDemoEmployees;
 
   const positions = await Promise.all(
     ['Cajero', 'Supervisor', 'Auxiliar'].map(async (name) =>
@@ -425,7 +432,9 @@ async function seedDemoCompany(roles: Record<string, string>) {
         latitude: 4.6619,
         longitude: -74.0917,
       },
-    ].map(async (store) =>
+    ]
+      .slice(0, MINIMAL_SEED ? 1 : undefined)
+      .map(async (store) =>
       prisma.store.upsert({
         where: { companyId_code: { companyId: company.id, code: store.code } },
         update: {},

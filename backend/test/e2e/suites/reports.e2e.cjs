@@ -42,19 +42,23 @@ const day = (n) => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.ge
   await shift(marta, norte, -180, -60, { status: 'COMPLETED', inMin: -168, out: new Date(Date.now() - 3600_000), late: 12, worked: 108 }); // completó, tarde
   await call('POST', '/incidents', A, { employeeId: sofia, type: 'SICK_LEAVE', startDate: today, description: 'Incapacidad' });
 
+  // El escenario usa turnos de hasta ~8 h antes de "ahora": si el día lleva pocas horas, parte
+  // de ellos quedan en "ayer" y no salen en el dashboard de hoy. Se omite (no se falla).
+  const minutesToday = (() => { const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number); return h * 60 + m; })();
+  const dayCheck = minutesToday >= 540 ? expect : (l) => console.log(`⚠ omitido (en Bogotá son las ${Math.floor(minutesToday / 60)}:${String(minutesToday % 60).padStart(2, '0')}; requiere 9 h del día transcurridas): ${l.trim()}`);
   console.log(`— Dashboard (hoy ${today})`);
   const d = check('Dashboard del día', await call('GET', '/reports/dashboard', A), 200).body;
   const st = Object.fromEntries(d.people.map(p => [p.name.split(' ')[0], p.statusLabel]));
   console.log('    ', Object.entries(st).map(([n, s]) => `${n}: ${s}`).join(' · '));
-  expect('     cada persona en su estado', st.Carlos === 'En turno' && st.Ana === 'Sin marcar entrada' && st.Luis === 'Salida pendiente' && st.Pedro === 'Por llegar' && st['Sofía'] === 'Incapacidad/permiso' && st.Marta === 'Completó');
+  dayCheck('     cada persona en su estado', st.Carlos === 'En turno' && st.Ana === 'Sin marcar entrada' && st.Luis === 'Salida pendiente' && st.Pedro === 'Por llegar' && st['Sofía'] === 'Incapacidad/permiso' && st.Marta === 'Completó');
   const t = d.totals;
   console.log(`     totales: programados ${t.scheduled} · en turno ${t.WORKING} · sin marcar ${t.MISSING} · salida pendiente ${t.PENDING_EXIT} · tarde ${t.late}`);
-  expect('     totales correctos', t.scheduled === 6 && t.WORKING === 1 && t.MISSING === 1 && t.PENDING_EXIT === 1 && t.UPCOMING === 1 && t.ON_TIME_OFF === 1 && t.COMPLETED === 1 && t.late === 1);
+  dayCheck('     totales correctos', t.scheduled === 6 && t.WORKING === 1 && t.MISSING === 1 && t.PENDING_EXIT === 1 && t.UPCOMING === 1 && t.ON_TIME_OFF === 1 && t.COMPLETED === 1 && t.late === 1);
   const miss = d.attention.missingClockIn[0], exit = d.attention.pendingExit[0];
   expect(`     atención: ${miss?.name} lleva ${miss?.minutesOverdue} min sin marcar; ${exit?.name} debe la salida hace ${exit?.minutesOverdue} min`, miss?.minutesOverdue >= 29 && exit?.minutesOverdue >= 19);
-  expect(`     por establecimiento: ${d.byStore.map(s => `${s.storeName} ${s.counters.scheduled}`).join(', ')}`, d.byStore.length === 2);
+  dayCheck(`     por establecimiento: ${d.byStore.map(s => `${s.storeName} ${s.counters.scheduled}`).join(', ')}`, d.byStore.length === 2);
   const dn = check('Filtrado por Tienda Norte', await call('GET', `/reports/dashboard?storeId=${norte}`, A), 200).body;
-  expect('     solo Marta', dn.people.length === 1 && dn.people[0].name.startsWith('Marta'));
+  dayCheck('     solo Marta', dn.people.length === 1 && dn.people[0].name.startsWith('Marta'));
   console.log(`     pendientes: ${JSON.stringify(d.pending)}`);
 
   console.log('— Detalle de asistencia');

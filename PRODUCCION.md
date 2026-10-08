@@ -9,6 +9,8 @@
 - [ ] HTTPS delante de la API (Caddy, Nginx, Cloudflare o el balanceador de su proveedor) y
       `TRUST_PROXY_HOPS` igual al número de proxies.
 - [ ] `CORS_ORIGINS` con la URL exacta del panel web.
+- [ ] HTTPS también delante del panel (puerto 3100): sus cookies de sesión son `Secure` y el
+      navegador no las guarda por HTTP.
 - [ ] Copias de seguridad automáticas de PostgreSQL (diarias, con prueba de restauración).
 - [ ] Cambiar la contraseña del superadministrador creado por el seed.
 
@@ -16,7 +18,10 @@
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
-Orden automático: PostgreSQL y Redis sanos → migraciones (`prisma migrate deploy`) → API.
+Orden automático: PostgreSQL y Redis sanos → migraciones (`prisma migrate deploy`) → API → panel web.
+
+El panel (`web`, puerto 3100) solo necesita `BACKEND_URL`, que en el compose ya apunta a la API por la
+red interna. Se lee al arrancar: cambiarlo no requiere reconstruir la imagen.
 
 ## Operación
 | Qué | Dónde |

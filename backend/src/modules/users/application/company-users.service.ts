@@ -35,11 +35,31 @@ export class CompanyUsersService {
   }
 
   async create(actor: Actor, input: MemberInput) {
-    const { userId, existingAccount } = await this.accounts.addMember(
+    const { userId, existingAccount, invited } = await this.accounts.addMember(
       actor,
       input,
     );
-    return { user: await this.get(actor.companyId, userId), existingAccount };
+    return {
+      user: await this.get(actor.companyId, userId),
+      existingAccount,
+      invited,
+    };
+  }
+
+  /**
+   * Enlace de acceso: si la persona aún no creó su contraseña se le reenvía la invitación
+   * (vigencia larga); si ya la tiene, el enlace de recuperación de siempre.
+   */
+  async sendAccessLink(
+    actor: Actor,
+    userId: string,
+  ): Promise<'invitation' | 'reset'> {
+    const user = await this.get(actor.companyId, userId);
+    if (user.invitationPending) {
+      await this.accounts.resendInvitation(actor, userId);
+      return 'invitation';
+    }
+    return 'reset';
   }
 
   async changeRole(actor: Actor, userId: string, roleId: string) {

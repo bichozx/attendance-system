@@ -16,7 +16,7 @@ import { EmployeesService } from '../employees.service';
 export interface GrantAccessInput {
   /** Si no se envía, se usa el correo del empleado. */
   email?: string;
-  /** Solo para cuentas nuevas. */
+  /** Clave temporal (solo cuentas nuevas). Sin ella se envía una invitación por correo. */
   password?: string;
   /** Si no se envía, rol EMPLOYEE. */
   roleId?: string;
@@ -51,7 +51,7 @@ export class GrantEmployeeAccessUseCase {
     }
 
     const roleId = input.roleId ?? (await this.defaultRoleId(actor.companyId));
-    const member = await this.accounts.ensureMember(actor, {
+    const member = await this.accounts.grantMember(actor, {
       email,
       password: input.password,
       firstName: employee.firstName,
@@ -76,6 +76,7 @@ export class GrantEmployeeAccessUseCase {
     return {
       employee: await this.queries.get(actor.companyId, employeeId),
       existingAccount: member.existingAccount,
+      invited: member.invited,
     };
   }
 

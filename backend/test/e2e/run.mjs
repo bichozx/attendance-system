@@ -31,6 +31,7 @@ const RESET_CMD =
 /** Configuración de cada suite (el resto de procesos periódicos queda apagado). */
 const SUITES = {
   security: { AUTH_MAX_FAILED_LOGINS: '3', PASSWORD_RESET_URL: 'http://localhost:3001/restablecer-clave?token={token}' },
+  invitations: { PASSWORD_RESET_URL: 'http://localhost:3001/restablecer-clave?token={token}' },
   companies: {},
   stores: {},
   shifts: {},

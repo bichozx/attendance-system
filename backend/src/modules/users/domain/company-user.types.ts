@@ -1,5 +1,8 @@
 export type MembershipStatus = 'INVITED' | 'ACTIVE' | 'DISABLED';
 
+/** Marca de cuenta invitada: no es un hash válido, así que ninguna contraseña coincide. */
+export const INVITATION_PENDING = '!invitation-pending';
+
 /** Un usuario visto desde una empresa: su cuenta + su membresía en esa empresa. */
 export interface CompanyUserView {
   id: string;
@@ -16,6 +19,8 @@ export interface CompanyUserView {
   employeeId: string | null;
   lastLoginAt: Date | null;
   memberSince: Date;
+  /** true mientras la persona no haya creado su contraseña con el enlace de invitación. */
+  invitationPending: boolean;
 }
 
 export interface CompanyUserFilter {
