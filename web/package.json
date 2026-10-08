@@ -1,0 +1,35 @@
+{
+  "name": "attendance-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "gen:api": "node scripts/gen-api.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node tests/e2e/panel.e2e.cjs && node tests/e2e/approvals-flow.cjs && node tests/e2e/admin.e2e.cjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
+    "@tanstack/react-query": "^5.104.1",
+    "next": "16.3.8",
+    "openapi-fetch": "^0.17.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "playwright": "^1.63.0"
+  }
+}

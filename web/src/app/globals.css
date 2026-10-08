@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Tokens: tinta azul petróleo sobre papel frío; los colores de estado tienen un solo
+   significado en todo el panel (verde = en turno, rojo = sin marcar, ámbar = tarde/pendiente,
+   violeta = permiso/incapacidad). */
+@theme {
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f3f5f4;
+  --color-surface: #ffffff;
+  --color-ink: #1c2b2a;
+  --color-ink-soft: #2d403e;
+  --color-muted: #5e6b69;
+  --color-line: #dce2e0;
+  --color-line-strong: #c3ccc9;
+
+  --color-working: #0e8f7e;
+  --color-missing: #d64545;
+  --color-warn: #c98a0b;
+  --color-leave: #7a5ac8;
+  --color-done: #6b7a78;
+  --color-upcoming: #9aa7a5;
+
+  --radius-ui: 6px;
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background: var(--color-paper);
+    font-feature-settings: "tnum" 1; /* horas y cifras alineadas en columnas */
+  }
+  body {
+    @apply font-sans antialiased;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+}
