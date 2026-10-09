@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { Button, Field, Input, Notice } from '@/components/ui';
+import { Button, Notice, PasswordField } from '@/components/ui';
 import { accountError, passwordProblem } from '@/lib/password';
 
 export function ChangePasswordForm({ name, forced }: { name: string; forced: boolean }) {
@@ -48,15 +48,9 @@ export function ChangePasswordForm({ name, forced }: { name: string; forced: boo
         </Notice>
       ) : null}
       {error ? <Notice tone="error" title={error} /> : null}
-      <Field label={forced ? 'Contraseña temporal' : 'Contraseña actual'}>
-        <Input type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
-      </Field>
-      <Field label="Nueva contraseña" hint="Mínimo 8 caracteres, con al menos una letra y un número.">
-        <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-      </Field>
-      <Field label="Repite la nueva">
-        <Input type="password" autoComplete="new-password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
-      </Field>
+      <PasswordField label={forced ? 'Contraseña temporal' : 'Contraseña actual'} autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
+      <PasswordField label="Nueva contraseña" hint="Mínimo 8 caracteres, con al menos una letra y un número." autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      <PasswordField label="Repite la nueva" autoComplete="new-password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
       <Button type="submit" loading={busy}>
         Guardar contraseña
       </Button>

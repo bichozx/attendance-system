@@ -45,7 +45,8 @@ const day = (n) => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.ge
   // El escenario usa turnos de hasta ~8 h antes de "ahora": si el día lleva pocas horas, parte
   // de ellos quedan en "ayer" y no salen en el dashboard de hoy. Se omite (no se falla).
   const minutesToday = (() => { const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number); return h * 60 + m; })();
-  const dayCheck = minutesToday >= 540 ? expect : (l) => console.log(`⚠ omitido (en Bogotá son las ${Math.floor(minutesToday / 60)}:${String(minutesToday % 60).padStart(2, '0')}; requiere 9 h del día transcurridas): ${l.trim()}`);
+  // …y el turno "por llegar" empieza en 2 h: después de las 22:00 cae en "mañana"
+  const dayCheck = minutesToday >= 540 && minutesToday < 1320 ? expect : (l) => console.log(`⚠ omitido (en Bogotá son las ${Math.floor(minutesToday / 60)}:${String(minutesToday % 60).padStart(2, '0')}; requiere entre las 9:00 y las 22:00): ${l.trim()}`);
   console.log(`— Dashboard (hoy ${today})`);
   const d = check('Dashboard del día', await call('GET', '/reports/dashboard', A), 200).body;
   const st = Object.fromEntries(d.people.map(p => [p.name.split(' ')[0], p.statusLabel]));

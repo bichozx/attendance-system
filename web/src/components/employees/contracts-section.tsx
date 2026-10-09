@@ -7,7 +7,7 @@ import { Badge, Button, Dialog, Field, Input, Notice, Select, Spinner, Textarea 
 import { useToast } from '@/components/ui/toast';
 import { api, call, errorMessage, type Schemas } from '@/lib/api/client';
 import { contractLabel, CONTRACT_TYPES, money } from '@/lib/labels';
-import { shortDate } from '@/lib/time';
+import { shortDate, localToday } from '@/lib/time';
 
 type Employee = Schemas['EmployeeResponseDto'];
 type ContractDraft = Schemas['CreateContractDto'];
@@ -23,7 +23,7 @@ export function ContractsSection({ employee, canManage }: { employee: Employee; 
   });
   const [draft, setDraft] = useState<ContractDraft>({
     contractType: 'INDEFINITE',
-    startDate: new Date().toISOString().slice(0, 10),
+    startDate: localToday(),
     endDate: null,
     baseSalary: '',
     weeklyHours: 42,

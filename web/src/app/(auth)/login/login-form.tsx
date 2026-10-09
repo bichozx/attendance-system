@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
-import { Button, Field, Input, Notice } from '@/components/ui';
+import { Button, Field, Input, Notice, PasswordField } from '@/components/ui';
 import { accountError } from '@/lib/password';
 
 interface CompanyOption {
@@ -75,9 +75,7 @@ export function LoginForm() {
       <Field label="Correo">
         <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
-      <Field label="Contraseña">
-        <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-      </Field>
+      <PasswordField label="Contraseña" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       <Button type="submit" loading={busy}>
         Iniciar sesión
       </Button>

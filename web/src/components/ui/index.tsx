@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useId, useRef } from 'react';
+import { forwardRef, useEffect, useId, useRef, useState } from 'react';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
@@ -58,6 +58,94 @@ export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTML
 ) {
   return <input ref={ref} {...props} className={cx(inputClass, className)} />;
 });
+
+/**
+ * Campo de contraseña con botón para mostrarla u ocultarla. Al enviar el formulario
+ * vuelve a ocultarse, para no dejarla visible en pantalla.
+ */
+export function PasswordInput({ className, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const form = ref.current?.form;
+    if (!form) return;
+    const hide = () => setVisible(false);
+    form.addEventListener('submit', hide);
+    return () => form.removeEventListener('submit', hide);
+  }, []);
+  return (
+    <span className="relative flex">
+      <input
+        ref={ref}
+        {...props}
+        type={visible ? 'text' : 'password'}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        className={cx(inputClass, 'w-full pr-11', className)}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(!visible)}
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        aria-pressed={visible}
+        title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-ui text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-ink">
+        {visible ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Etiqueta + campo de contraseña. El botón del ojo queda FUERA del <label>, para que el
+ * nombre accesible del campo sea solo su etiqueta ("Nueva contraseña", no "Nueva contraseña
+ * Mostrar contraseña").
+ */
+export function PasswordField({
+  label,
+  hint,
+  error,
+  ...props
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> & { label: string; hint?: string; error?: string }) {
+  const id = useId();
+  const noteId = useId();
+  const note = error ?? hint;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-semibold">
+        {label}
+      </label>
+      <PasswordInput id={id} aria-describedby={note ? noteId : undefined} aria-invalid={error ? true : undefined} {...props} />
+      {note ? (
+        <span id={noteId} className={cx('text-sm', error ? 'text-missing' : 'text-muted')}>
+          {note}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+const iconProps = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
+
+function EyeIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M9.9 4.24A9.6 9.6 0 0 1 12 4c6.5 0 10 8 10 8a17.5 17.5 0 0 1-2.16 3.19M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+      <path d="M9.88 9.88a3 3 0 0 0 4.24 4.24" />
+      <path d="m2 2 20 20" />
+    </svg>
+  );
+}
 
 export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={cx(inputClass, 'pr-8', className)} />;

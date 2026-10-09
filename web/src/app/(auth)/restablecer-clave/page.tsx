@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
-import { Button, Field, Input, Notice } from '@/components/ui';
+import { Button, Notice, PasswordField } from '@/components/ui';
 import { accountError, passwordProblem } from '@/lib/password';
 
 /** Destino del enlace del correo: recuperar la contraseña o activar una cuenta invitada. */
@@ -63,12 +63,8 @@ function ResetForm() {
       }}>
       <h1 className="text-2xl font-bold">Crea tu contraseña</h1>
       {error ? <Notice tone="error" title={error} /> : null}
-      <Field label="Nueva contraseña" hint="Mínimo 8 caracteres, con al menos una letra y un número.">
-        <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-      </Field>
-      <Field label="Repítela">
-        <Input type="password" autoComplete="new-password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
-      </Field>
+      <PasswordField label="Nueva contraseña" hint="Mínimo 8 caracteres, con al menos una letra y un número." autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      <PasswordField label="Repítela" autoComplete="new-password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
       <Button type="submit" loading={busy}>
         Guardar contraseña
       </Button>

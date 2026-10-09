@@ -8,7 +8,7 @@ const expect = (l, ok, extra = '') => { ok ? pass++ : fail++; console.log(`${ok 
   const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, timezoneId: 'America/Bogota' })).newPage();
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(B + '/login');
-  await page.getByLabel('Correo').fill('admin@demo.local'); await page.getByLabel('Contraseña').fill('Demo123!');
+  await page.getByLabel('Correo').fill('admin@demo.local'); await page.getByLabel('Contraseña', { exact: true }).fill('Demo123!');
   await page.getByRole('button', { name: 'Iniciar sesión' }).click(); await page.waitForURL(B + '/');
 
   await page.getByRole('link', { name: /Aprobaciones/ }).click(); await page.waitForURL('**/aprobaciones');

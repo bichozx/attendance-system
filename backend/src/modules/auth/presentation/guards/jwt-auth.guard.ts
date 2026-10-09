@@ -11,6 +11,8 @@ import { ALLOW_PENDING_PASSWORD_KEY } from '../../../../shared/auth/allow-pendin
 import { IS_PUBLIC_KEY } from '../../../../shared/auth/public.decorator';
 import { PasswordChangeRequiredError } from '../../domain/auth.errors';
 import { AccessTokenService } from '../../domain/ports/access-token.service';
+import { SessionAccessReader } from '../../domain/ports/session-access.reader';
+import { resolveLiveAccess } from '../../domain/session-access.rules';
 
 /** Guard global: todo endpoint exige access token salvo los marcados con @Public(). */
 @Injectable()
@@ -18,6 +20,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly accessTokens: AccessTokenService,
+    private readonly sessions: SessionAccessReader,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -33,9 +36,20 @@ export class JwtAuthGuard implements CanActivate {
     const token = extractBearerToken(request);
     if (!token) throw new UnauthorizedException('Falta el access token');
 
-    const user = await this.accessTokens.verify(token);
-    if (!user)
+    const claims = await this.accessTokens.verify(token);
+    if (!claims)
       throw new UnauthorizedException('Access token inválido o expirado');
+
+    // La firma no basta: la sesión, la cuenta, la membresía y la empresa deben seguir activas
+    const user = resolveLiveAccess(
+      claims,
+      await this.sessions.find(claims.sessionId),
+      new Date(),
+    );
+    if (!user)
+      throw new UnauthorizedException(
+        'La sesión ya no es válida. Inicie sesión de nuevo.',
+      );
 
     // Contraseña temporal: el servidor bloquea todo lo demás (no depende de la app)
     if (

@@ -23,6 +23,8 @@ import { Argon2PasswordHasher } from './infrastructure/argon2-password-hasher';
 import { CryptoRefreshTokenCodec } from './infrastructure/crypto-refresh-token.codec';
 import { JwtAccessTokenService } from './infrastructure/jwt-access-token.service';
 import { PrismaAuthRepository } from './infrastructure/prisma-auth.repository';
+import { SessionAccessReader } from './domain/ports/session-access.reader';
+import { PrismaSessionAccessReader } from './infrastructure/prisma-session-access.reader';
 import { AuthController } from './presentation/auth.controller';
 import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard';
 import { PermissionsGuard } from './presentation/guards/permissions.guard';
@@ -80,6 +82,7 @@ function accessTtl(config: ConfigService): number {
 
     // Puertos del dominio → implementaciones de infraestructura
     { provide: AuthRepository, useClass: PrismaAuthRepository },
+    { provide: SessionAccessReader, useClass: PrismaSessionAccessReader },
     { provide: PasswordHasher, useClass: Argon2PasswordHasher },
     { provide: AccessTokenService, useClass: JwtAccessTokenService },
     { provide: RefreshTokenCodec, useClass: CryptoRefreshTokenCodec },

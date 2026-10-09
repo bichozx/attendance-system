@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Field, Input, Select } from '@/components/ui';
 import { api, call, type Schemas } from '@/lib/api/client';
 import { DOCUMENT_TYPES } from '@/lib/labels';
+import { localToday } from '@/lib/time';
 
 export type EmployeeDraft = Schemas['CreateEmployeeDto'];
 
@@ -85,7 +86,7 @@ export function emptyDraft(): EmployeeDraft {
     lastName: '',
     email: null,
     phone: null,
-    hireDate: new Date().toISOString().slice(0, 10),
+    hireDate: localToday(),
     positionId: null,
     defaultStoreId: null,
   };

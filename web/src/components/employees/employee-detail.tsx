@@ -9,14 +9,14 @@ import { Badge, Button, Dialog, Field, Input, Notice, Select, Spinner } from '@/
 import { useToast } from '@/components/ui/toast';
 import { api, call, errorMessage, type Schemas } from '@/lib/api/client';
 import { EMPLOYEE_STATUS } from '@/lib/labels';
-import { shortDate } from '@/lib/time';
+import { shortDate, localToday } from '@/lib/time';
 import { ContractsSection } from './contracts-section';
 import { EmployeeFields, type EmployeeDraft } from './employee-form';
 
 type Employee = Schemas['EmployeeResponseDto'];
 type Status = Schemas['ChangeEmployeeStatusDto']['status'];
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = localToday;
 
 export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean; access: boolean; readContracts: boolean; manageContracts: boolean } }) {
   const queryClient = useQueryClient();

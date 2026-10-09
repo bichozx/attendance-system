@@ -27,7 +27,7 @@ async function apiAdmin() {
   const login = async (page, email, password = 'Demo123!') => {
     await page.goto(B + '/login');
     await page.getByLabel('Correo').fill(email);
-    await page.getByLabel('Contraseña').fill(password);
+    await page.getByLabel('Contraseña', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   };
   const A = await apiAdmin();
@@ -38,11 +38,11 @@ async function apiAdmin() {
     await page.goto(B + '/empleados');
     expect('Sin sesión, una página interna lleva al login (recordando a dónde iba)', page.url().includes('/login?next=%2Fempleados'));
     await page.getByLabel('Correo').fill('admin@demo.local');
-    await page.getByLabel('Contraseña').fill('mala');
+    await page.getByLabel('Contraseña', { exact: true }).fill('mala');
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
     await page.getByText('Correo o contraseña incorrectos.').waitFor();
     expect('Contraseña incorrecta: mensaje claro', true);
-    await page.getByLabel('Contraseña').fill('Demo123!');
+    await page.getByLabel('Contraseña', { exact: true }).fill('Demo123!');
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
     await page.waitForURL(B + '/empleados');
     expect('Al entrar, vuelve a la página que pedía', true);
@@ -174,7 +174,7 @@ async function apiAdmin() {
     await p2.waitForURL(/cambiar-clave/, { timeout: 8000 });
     expect('…y no deja usar el panel antes', p2.url().endsWith('/cambiar-clave'), p2.url());
     await p2.getByLabel('Contraseña temporal').fill('Temporal2026');
-    await p2.getByLabel('Nueva contraseña').fill('Laura2026x');
+    await p2.getByLabel('Nueva contraseña', { exact: true }).fill('Laura2026x');
     await p2.getByLabel('Repite la nueva').fill('Laura2026x');
     await p2.getByRole('button', { name: 'Guardar contraseña' }).click();
     await p2.waitForURL(B + '/');

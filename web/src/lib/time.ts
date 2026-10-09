@@ -223,3 +223,8 @@ export function shortDate(day: string) {
     timeZone: 'UTC',
   }).format(dateObj);
 }
+
+/** Fecha de hoy "AAAA-MM-DD" en la zona del navegador (no en UTC: después de las 19:00 en Colombia, UTC ya es mañana). */
+export function localToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}

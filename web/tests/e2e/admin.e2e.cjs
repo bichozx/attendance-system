@@ -29,7 +29,7 @@ async function apiAs(email = 'admin@demo.local', password = 'Demo123!') {
   const login = async (page, email = 'admin@demo.local', password = 'Demo123!') => {
     await page.goto(B + '/login');
     await page.getByLabel('Correo').fill(email);
-    await page.getByLabel('Contraseña').fill(password);
+    await page.getByLabel('Contraseña', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
     await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   };
