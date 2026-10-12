@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">Recuperar contraseña</h1>
+      <h1 className="text-[30px] leading-tight font-semibold">Recuperar contraseña</h1>
       {sent ? (
         <Notice tone="ok" title="Revisa tu correo">
           {sent} El enlace vence en 30 minutos.

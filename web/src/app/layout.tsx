@@ -1,4 +1,5 @@
-import '@fontsource-variable/atkinson-hyperlegible-next';
+import '@fontsource-variable/playfair-display';
+import '@fontsource-variable/source-sans-3';
 import './globals.css';
 
 import type { Metadata } from 'next';
@@ -6,7 +7,7 @@ import type { Metadata } from 'next';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: { default: 'Control de asistencia', template: '%s · Control de asistencia' },
+  title: { default: 'Asistencia · Tauras', template: '%s · Asistencia Tauras' },
   description: 'Panel de administración de turnos y asistencia',
 };
 

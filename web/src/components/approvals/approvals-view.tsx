@@ -60,10 +60,10 @@ export function ApprovalsView({ can }: { can: Record<Tab, boolean> }) {
             aria-controls={`panel-${t.id}`}
             onClick={() => setTab(t.id)}
             className={`-mb-px flex items-center gap-2 border-b-2 px-3 py-2 text-[15px] ${
-              tab === t.id ? 'border-ink font-semibold' : 'border-transparent text-muted hover:text-ink'
+              tab === t.id ? 'border-brand font-semibold' : 'border-transparent text-muted hover:text-ink'
             }`}>
             {t.label}
-            {t.count ? <span className="rounded-full bg-warn px-2 text-[13px] font-bold text-white">{t.count}</span> : null}
+            {t.count ? <span className="rounded-full bg-brass px-2 text-[13px] font-bold text-char">{t.count}</span> : null}
           </button>
         ))}
       </div>

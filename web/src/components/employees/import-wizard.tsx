@@ -74,7 +74,7 @@ export function ImportWizard() {
       <Link href="/empleados" className="text-sm text-muted underline-offset-4 hover:underline">
         Empleados
       </Link>
-      <h1 className="mt-1 mb-2 text-[28px] leading-tight font-bold">Importar empleados</h1>
+      <h1 className="mt-1 mb-2 text-[32px] leading-tight font-semibold">Importar empleados</h1>
       <p className="mb-8 max-w-2xl text-muted">
         Carga muchas personas a la vez desde Excel o CSV. Primero se revisa todo el archivo; nada se guarda hasta que confirmes.
       </p>
@@ -203,7 +203,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
         {n}
       </span>
       <div>
-        <h2 className="mb-2 text-lg font-bold">
+        <h2 className="mb-2 text-xl font-semibold">
           <span className="sr-only">Paso {n}: </span>
           {title}
         </h2>

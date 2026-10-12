@@ -61,7 +61,7 @@ function ResetForm() {
         e.preventDefault();
         void submit();
       }}>
-      <h1 className="text-2xl font-bold">Crea tu contraseña</h1>
+      <h1 className="text-[30px] leading-tight font-semibold">Crea tu contraseña</h1>
       {error ? <Notice tone="error" title={error} /> : null}
       <PasswordField label="Nueva contraseña" hint="Mínimo 8 caracteres, con al menos una letra y un número." autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       <PasswordField label="Repítela" autoComplete="new-password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />

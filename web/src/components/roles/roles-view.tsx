@@ -75,7 +75,7 @@ export function RolesView({ canManage }: { canManage: boolean }) {
                     setEditing(null);
                   }}
                   aria-current={active ? 'true' : undefined}
-                  className={`w-full rounded-ui border px-3 py-2 text-left ${active ? 'border-ink bg-surface' : 'border-transparent hover:bg-surface'}`}>
+                  className={`w-full rounded-ui border px-3 py-2 text-left ${active ? 'border-brand bg-surface' : 'border-transparent hover:bg-surface'}`}>
                   <span className="flex items-center justify-between gap-2 font-semibold">
                     {r.name}
                     {r.isSystem ? <Badge>Sistema</Badge> : null}

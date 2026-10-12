@@ -49,7 +49,7 @@ export function LoginForm() {
   if (companies) {
     return (
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-bold">¿A qué empresa entras?</h1>
+        <h1 className="text-[30px] leading-tight font-semibold">¿A qué empresa entras?</h1>
         <p className="text-muted">Tu cuenta tiene acceso a varias.</p>
         {companies.map((c) => (
           <Button key={c.id} variant="secondary" className="justify-start" loading={busy} onClick={() => void submit(c.id)}>
@@ -70,7 +70,7 @@ export function LoginForm() {
         e.preventDefault();
         void submit();
       }}>
-      <h1 className="text-2xl font-bold">Iniciar sesión</h1>
+      <h1 className="text-[30px] leading-tight font-semibold">Iniciar sesión</h1>
       {error ? <Notice tone="error" title={error} /> : null}
       <Field label="Correo">
         <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />

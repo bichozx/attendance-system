@@ -86,7 +86,7 @@ export function EmployeesList({ canManage }: { canManage: boolean }) {
                 setStatus(value);
                 setPage(1);
               }}
-              className={`rounded-full border px-3 py-1 text-sm ${status === value ? 'border-ink bg-ink text-white' : 'border-line-strong bg-surface hover:border-ink'}`}>
+              className={`rounded-full border px-3 py-1 text-sm ${status === value ? 'border-brand bg-brand text-white' : 'border-line-strong bg-surface hover:border-ink'}`}>
               {label}
             </button>
           ))}

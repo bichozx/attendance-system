@@ -146,8 +146,8 @@ export function ShiftsView({ canManage, canPublish }: { canManage: boolean; canP
           const period = periodFor(periodList, store.id, d);
           const locked = period?.status === 'CLOSED';
           return (
-            <section key={d} aria-label={`${weekdayShort(d)} ${dayNumber(d)}`} className={`flex min-h-32 flex-col rounded-ui border bg-surface ${d === today ? 'border-ink' : 'border-line'}`}>
-              <header className={`flex items-baseline justify-between px-2.5 py-1.5 ${d === today ? 'bg-ink text-white' : 'border-b border-line'}`}>
+            <section key={d} aria-label={`${weekdayShort(d)} ${dayNumber(d)}`} className={`flex min-h-32 flex-col rounded-ui border bg-surface ${d === today ? 'border-brand' : 'border-line'}`}>
+              <header className={`flex items-baseline justify-between px-2.5 py-1.5 ${d === today ? 'bg-brand text-white' : 'border-b border-line'}`}>
                 <span className="capitalize">
                   {weekdayShort(d)} <span className="font-bold">{dayNumber(d)}</span>
                 </span>

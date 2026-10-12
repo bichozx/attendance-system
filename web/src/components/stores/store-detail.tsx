@@ -41,7 +41,7 @@ export function StoreDetail({ id, canManage }: { id: string; canManage: boolean 
       </Link>
       <header className="mt-1 mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[28px] leading-tight font-bold">{s.name}</h1>
+          <h1 className="text-[32px] leading-tight font-semibold">{s.name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-muted">
             {s.isActive ? <Badge tone="working">Activo</Badge> : <Badge tone="done">Inactivo</Badge>}
             {s.code}
@@ -60,7 +60,7 @@ export function StoreDetail({ id, canManage }: { id: string; canManage: boolean 
           {canManage ? <StoreDataForm key={s.updatedAt} store={s} onSaved={refresh} /> : null}
         </div>
         <aside className="xl:sticky xl:top-6 xl:self-start">
-          <h2 className="mb-3 text-lg font-bold">Vista desde arriba</h2>
+          <h2 className="mb-3 text-xl font-semibold">Vista desde arriba</h2>
           <GeofenceDiagram store={{ lat: s.latitude, lng: s.longitude }} geofences={s.geofences} point={tested} />
         </aside>
       </div>
@@ -89,7 +89,7 @@ function GeofencesSection({ store, canManage, onChanged }: { store: Store; canMa
   return (
     <section aria-labelledby="geocercas">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 id="geocercas" className="text-lg font-bold">
+        <h2 id="geocercas" className="text-xl font-semibold">
           Geocercas
         </h2>
         {canManage ? (
@@ -241,7 +241,7 @@ function LocationTest({ store, onResult }: { store: Store; onResult: (p: TestedP
   const r = check.data;
   return (
     <section aria-labelledby="probar">
-      <h2 id="probar" className="mb-1 text-lg font-bold">
+      <h2 id="probar" className="mb-1 text-xl font-semibold">
         Probar una ubicación
       </h2>
       <p className="mb-3 max-w-prose text-muted">
@@ -316,7 +316,7 @@ function StoreDataForm({ store, onSaved }: { store: Store; onSaved: () => void }
   });
   return (
     <section aria-labelledby="datos">
-      <h2 id="datos" className="mb-3 text-lg font-bold">
+      <h2 id="datos" className="mb-3 text-xl font-semibold">
         Datos
       </h2>
       <form

@@ -37,7 +37,7 @@ export function AccessMethodField({
       {options.map((o) => (
         <label
           key={o.value}
-          className={`flex cursor-pointer gap-3 rounded-ui border px-3 py-2.5 ${method === o.value ? 'border-ink bg-paper' : 'border-line hover:bg-paper'}`}>
+          className={`flex cursor-pointer gap-3 rounded-ui border px-3 py-2.5 ${method === o.value ? 'border-brand bg-paper' : 'border-line hover:bg-paper'}`}>
           <input
             type="radio"
             name="access-method"

@@ -62,7 +62,7 @@ export function ReportsView({ canExport, canFilterStores }: { canExport: boolean
               key={p.label}
               aria-pressed={range.from === p.from && range.to === p.to}
               onClick={() => setRange({ from: p.from, to: p.to })}
-              className={`rounded-full border px-3 py-1.5 text-sm ${range.from === p.from && range.to === p.to ? 'border-ink bg-ink text-white' : 'border-line-strong hover:border-ink'}`}>
+              className={`rounded-full border px-3 py-1.5 text-sm ${range.from === p.from && range.to === p.to ? 'border-brand bg-brand text-white' : 'border-line-strong hover:border-ink'}`}>
               {p.label}
             </button>
           ))}
@@ -106,7 +106,7 @@ export function ReportsView({ canExport, canFilterStores }: { canExport: boolean
         </section>
       ) : null}
 
-      <h2 className="mb-3 text-lg font-bold">Detalle de asistencia</h2>
+      <h2 className="mb-3 text-xl font-semibold">Detalle de asistencia</h2>
       {preview.isPending ? <Spinner /> : null}
       {preview.error ? <Notice tone="error" title="No se pudo generar el reporte">{errorMessage(preview.error)}</Notice> : null}
       {table && table.rows.length === 0 ? <Empty title="Sin jornadas en este periodo">Prueba con otro rango de fechas o establecimiento.</Empty> : null}

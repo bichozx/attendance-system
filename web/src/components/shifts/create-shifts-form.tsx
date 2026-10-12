@@ -141,7 +141,7 @@ export function CreateShiftsForm({
             <label
               key={d}
               className={`flex cursor-pointer flex-col items-center rounded-ui border py-1.5 text-sm has-focus-visible:outline-2 ${
-                selected.includes(d) ? 'border-ink bg-ink text-white' : 'border-line hover:bg-paper'
+                selected.includes(d) ? 'border-brand bg-brand text-white' : 'border-line hover:bg-paper'
               }`}>
               <input type="checkbox" className="sr-only" checked={selected.includes(d)} onChange={() => toggleDay(d)} />
               <span className="capitalize">{weekdayShort(d)}</span>
@@ -176,7 +176,7 @@ export function CreateShiftsForm({
                 setStart(p.start);
                 setEnd(p.end);
               }}
-              className={`rounded-full border px-3 py-1 text-sm ${start === p.start && end === p.end ? 'border-ink bg-ink text-white' : 'border-line hover:bg-paper'}`}>
+              className={`rounded-full border px-3 py-1 text-sm ${start === p.start && end === p.end ? 'border-brand bg-brand text-white' : 'border-line hover:bg-paper'}`}>
               {p.label} {p.start}–{p.end}
             </button>
           ))}

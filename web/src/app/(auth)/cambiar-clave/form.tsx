@@ -41,7 +41,7 @@ export function ChangePasswordForm({ name, forced }: { name: string; forced: boo
         e.preventDefault();
         void submit();
       }}>
-      <h1 className="text-2xl font-bold">{forced ? `Hola, ${name}` : 'Cambiar contraseña'}</h1>
+      <h1 className="text-[30px] leading-tight font-semibold">{forced ? `Hola, ${name}` : 'Cambiar contraseña'}</h1>
       {forced ? (
         <Notice tone="neutral" title="Crea tu propia contraseña">
           Te dieron una contraseña temporal. Cámbiala para empezar a usar el panel.

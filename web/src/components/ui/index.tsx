@@ -23,10 +23,10 @@ export function Button({ variant = 'primary', size = 'md', loading, disabled, cl
       className={cx(
         'inline-flex items-center justify-center gap-2 rounded-ui font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-[15px]',
-        variant === 'primary' && 'bg-ink text-white hover:bg-ink-soft',
+        variant === 'primary' && 'bg-brand text-white shadow-sm hover:bg-brand-strong',
         variant === 'secondary' && 'border border-line-strong bg-surface text-ink hover:bg-paper',
         variant === 'danger' && 'bg-missing text-white hover:brightness-95',
-        variant === 'quiet' && 'text-ink underline-offset-4 hover:underline',
+        variant === 'quiet' && 'text-brand underline-offset-4 hover:underline',
         className,
       )}>
       {loading ? <span className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent" /> : null}
@@ -50,7 +50,7 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 const inputClass =
-  'h-10 rounded-ui border border-line-strong bg-surface px-3 text-[15px] placeholder:text-upcoming focus:border-ink focus:outline-none aria-[invalid=true]:border-missing';
+  'h-10 rounded-ui border border-line-strong bg-surface px-3 text-[15px] placeholder:text-upcoming focus:border-brand focus:ring-2 focus:ring-brand/15 focus:outline-none aria-[invalid=true]:border-missing';
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, ...props },
@@ -90,7 +90,7 @@ export function PasswordInput({ className, ...props }: Omit<React.InputHTMLAttri
         aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
         aria-pressed={visible}
         title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-ui text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-ink">
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-ui text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-brand">
         {visible ? <EyeOffIcon /> : <EyeIcon />}
       </button>
     </span>
@@ -164,7 +164,7 @@ export type Tone = 'working' | 'missing' | 'warn' | 'leave' | 'done' | 'neutral'
 const TONES: Record<Tone, string> = {
   working: 'bg-working/10 text-working',
   missing: 'bg-missing/10 text-missing',
-  warn: 'bg-warn/12 text-[#94650a]',
+  warn: 'bg-warn/12 text-warn-ink',
   leave: 'bg-leave/10 text-leave',
   done: 'bg-done/10 text-done',
   neutral: 'bg-line text-ink-soft',
@@ -183,7 +183,7 @@ export function Notice({ tone = 'neutral', title, children }: { tone?: 'neutral'
         tone === 'error' && 'border-missing',
         tone === 'ok' && 'border-working',
         tone === 'warn' && 'border-warn',
-        tone === 'neutral' && 'border-ink',
+        tone === 'neutral' && 'border-brass',
       )}>
       <p className="font-semibold">{title}</p>
       {children ? <div className="mt-0.5 text-sm text-muted">{children}</div> : null}
@@ -216,8 +216,9 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[28px] leading-tight font-bold tracking-tight">{title}</h1>
-        {description ? <p className="mt-1 max-w-2xl text-muted">{description}</p> : null}
+        <h1 className="text-[32px] leading-tight font-semibold text-ink">{title}</h1>
+        <span aria-hidden className="rule-brass mt-2" />
+        {description ? <p className="mt-2.5 max-w-2xl text-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </header>
@@ -227,13 +228,13 @@ export function PageHeader({ title, description, actions }: { title: string; des
 export function Table({ children }: { children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto rounded-ui border border-line bg-surface">
-      <table className="w-full border-collapse text-left text-[15px]">{children}</table>
+      <table className="w-full border-collapse text-left text-[15px] [&_tbody_tr:hover]:bg-[#fbf6ef]">{children}</table>
     </div>
   );
 }
 
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={cx('border-b border-line bg-paper/60 px-4 py-2.5 text-sm font-semibold text-muted', className)}>{children}</th>;
+  return <th className={cx('border-b border-line-strong bg-[#f2eadf] px-4 py-2.5 text-[15px] leading-[1.15] font-semibold tracking-[0.05em] text-muted [font-variant-caps:all-small-caps]', className)}>{children}</th>;
 }
 
 export function Td({ children, className }: { children?: React.ReactNode; className?: string }) {
@@ -258,9 +259,9 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
       ref={ref}
       onClose={onClose}
       aria-labelledby={titleId}
-      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-ui border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-ink/40">
+      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-ui border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-char/55">
       <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-        <h2 id={titleId} className="text-lg font-bold">
+        <h2 id={titleId} className="text-xl font-semibold">
           {title}
         </h2>
         <button onClick={onClose} aria-label="Cerrar" className="rounded p-1 text-muted hover:text-ink">

@@ -52,7 +52,7 @@ export function AttendanceInbox({ query }: { query: UseQueryResult<Page> }) {
                 <p className="text-[15px]">
                   Turno {a.shift.localStart}–{a.shift.localEnd} · entró {a.clockInAt ? clock(a.clockInAt, tz) : '—'} · salió{' '}
                   {a.clockOutAt ? clock(a.clockOutAt, tz) : '—'}
-                  {a.lateMinutes ? <span className="text-[#94650a]"> · {duration(a.lateMinutes)} tarde</span> : null}
+                  {a.lateMinutes ? <span className="text-warn-ink"> · {duration(a.lateMinutes)} tarde</span> : null}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <Badge tone={a.status === 'COMPLETED' ? 'done' : a.status === 'INCOMPLETE' ? 'warn' : 'neutral'}>{ATTENDANCE_STATUS[a.status] ?? a.status}</Badge>

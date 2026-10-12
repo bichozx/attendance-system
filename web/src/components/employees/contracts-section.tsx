@@ -45,7 +45,7 @@ export function ContractsSection({ employee, canManage }: { employee: Employee; 
   return (
     <section aria-labelledby="contratos">
       <div className="mb-3 flex items-center justify-between">
-        <h2 id="contratos" className="text-lg font-bold">
+        <h2 id="contratos" className="text-xl font-semibold">
           Contratos
         </h2>
         {canManage && employee.status !== 'TERMINATED' ? (

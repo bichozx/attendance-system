@@ -89,7 +89,7 @@ export function DashboardView({ canFilterStores }: { canFilterStores: boolean })
 
           <aside className="flex flex-col gap-6">
             <section aria-labelledby="accion">
-              <h2 id="accion" className="mb-2 text-lg font-bold">
+              <h2 id="accion" className="mb-2 text-xl font-semibold">
                 Requiere acción
               </h2>
               {attention.length === 0 ? (
@@ -116,7 +116,7 @@ export function DashboardView({ canFilterStores }: { canFilterStores: boolean })
             </section>
 
             <section aria-labelledby="pendientes">
-              <h2 id="pendientes" className="mb-2 text-lg font-bold">
+              <h2 id="pendientes" className="mb-2 text-xl font-semibold">
                 Por aprobar
               </h2>
               {pending === 0 ? (
@@ -145,7 +145,7 @@ function LegendButton({ active, onClick, children }: { active: boolean; onClick:
       onClick={onClick}
       aria-pressed={active}
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
-        active ? 'border-ink bg-ink text-white' : 'border-line-strong bg-surface hover:border-ink'
+        active ? 'border-brand bg-brand text-white' : 'border-line-strong bg-surface hover:border-ink'
       }`}>
       {children}
     </button>

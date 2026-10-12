@@ -40,7 +40,7 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
       </Link>
       <header className="mt-1 mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[28px] leading-tight font-bold">
+          <h1 className="text-[32px] leading-tight font-semibold">
             {e.firstName} {e.lastName}
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-muted">
@@ -58,7 +58,7 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
 
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section aria-labelledby="datos">
-          <h2 id="datos" className="mb-3 text-lg font-bold">
+          <h2 id="datos" className="mb-3 text-xl font-semibold">
             Datos
           </h2>
           <DataForm key={e.updatedAt} employee={e} canManage={can.manage} onSaved={refresh} />
@@ -66,7 +66,7 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
 
         <div className="flex flex-col gap-10">
           <section aria-labelledby="acceso">
-            <h2 id="acceso" className="mb-3 text-lg font-bold">
+            <h2 id="acceso" className="mb-3 text-xl font-semibold">
               Acceso a la app
             </h2>
             <div className="rounded-ui border border-line bg-surface p-5">

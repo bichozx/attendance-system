@@ -12,7 +12,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     if (session.user.isPlatformAdmin) redirect('/plataforma');
     return (
       <main className="mx-auto max-w-lg px-6 py-20">
-        <h1 className="text-2xl font-bold">Sin empresa asignada</h1>
+        <h1 className="text-[30px] leading-tight font-semibold">Sin empresa asignada</h1>
         <p className="mt-2 text-muted">Esta cuenta no tiene acceso activo a ninguna empresa. Pídele al administrador de tu empresa que revise tu acceso.</p>
       </main>
     );
@@ -23,7 +23,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   ).map(({ href, label, badge, group }) => ({ href, label, badge, group }));
 
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[232px_minmax(0,1fr)]">
+    <div className="min-h-dvh md:grid md:grid-cols-[248px_minmax(0,1fr)]">
       <Sidebar
         company={session.company.name}
         user={`${session.user.firstName} ${session.user.lastName}`}
@@ -32,7 +32,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
         showCounts={can(session, 'reports.read')}
         platformAdmin={session.user.isPlatformAdmin}
       />
-      <main className="min-w-0 px-5 py-6 sm:px-8 lg:px-10">{children}</main>
+      <main className="min-w-0 px-5 py-7 sm:px-8 lg:px-12">{children}</main>
     </div>
   );
 }

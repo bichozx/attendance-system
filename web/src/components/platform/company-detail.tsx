@@ -28,7 +28,7 @@ export function PlatformCompanyDetail({ id }: { id: string }) {
         ← Empresas
       </Link>
       <div className="mt-2 mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{c.name}</h1>
+        <h1 className="text-[30px] leading-tight font-semibold">{c.name}</h1>
         <Badge tone={s.tone}>{s.label}</Badge>
       </div>
       <dl className="mb-6 grid grid-cols-3 gap-3 sm:max-w-md">
