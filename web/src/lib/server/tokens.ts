@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { refreshOnce } from '@/lib/refresh';
+
 /**
  * Tokens en cookies httpOnly: el JavaScript del navegador NUNCA los ve, así que un XSS no
  * puede robarlos. SameSite=Lax impide que otro sitio los use en peticiones POST/PATCH.
@@ -42,34 +44,9 @@ export function clearTokens(cookies: CookieWriter) {
   cookies.delete(REFRESH_COOKIE);
 }
 
-/**
- * Renovación compartida: si llegan varias peticiones a la vez con el token vencido, se hace
- * UN solo refresh. Dos refresh con el mismo token harían que el backend lo detecte como robo
- * y cierre la sesión.
- */
-const inFlight = new Map<string, Promise<TokenSet | null>>();
-
+/** Renueva el access token (un solo refresh aunque lleguen varias peticiones a la vez). */
 export function refreshTokens(refreshToken: string): Promise<TokenSet | null> {
-  let pending = inFlight.get(refreshToken);
-  if (!pending) {
-    pending = (async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-          cache: 'no-store',
-        });
-        return res.ok ? ((await res.json()) as TokenSet) : null;
-      } catch {
-        return null;
-      }
-    })();
-    inFlight.set(refreshToken, pending);
-    // Se conserva unos segundos: peticiones que llegan justo después reciben el mismo resultado
-    void pending.finally(() => setTimeout(() => inFlight.delete(refreshToken), 10_000));
-  }
-  return pending;
+  return refreshOnce(BACKEND_URL, refreshToken);
 }
 
 /** Quita los tokens de una respuesta antes de enviarla al navegador. */

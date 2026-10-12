@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { refreshOnce } from '@/lib/refresh';
+
 const ACCESS = 'ast_access';
 const REFRESH = 'ast_refresh';
 const BACKEND_URL = (process.env.BACKEND_URL ?? 'http://localhost:3000/api/v1').replace(/\/$/, '');
@@ -27,26 +29,14 @@ export async function proxy(request: NextRequest) {
     return pathname === '/login' ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
   }
 
-  // Access vencido: renovar
-  const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: refresh }),
-    cache: 'no-store',
-  }).catch(() => null);
-
-  if (!res?.ok) {
+  // Access vencido: renovar (compartido con los BFF: un solo refresh por token)
+  const t = await refreshOnce(BACKEND_URL, refresh);
+  if (!t) {
     const out = isPublic ? NextResponse.next() : NextResponse.redirect(new URL('/login', request.url));
     out.cookies.delete(ACCESS);
     out.cookies.delete(REFRESH);
     return out;
   }
-  const t = (await res.json()) as {
-    accessToken: string;
-    accessTokenExpiresIn: number;
-    refreshToken: string;
-    refreshTokenExpiresAt: string;
-  };
   // La página que se va a renderizar debe ver los tokens nuevos...
   request.cookies.set(ACCESS, t.accessToken);
   request.cookies.set(REFRESH, t.refreshToken);
