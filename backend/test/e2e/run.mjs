@@ -45,6 +45,7 @@ const SUITES = {
     PUSH_RECEIPTS_INTERVAL_SECONDS: '2',
   },
   reports: {},
+  positions: {},
   import: {},
   hardening: { MAINTENANCE_INTERVAL_SECONDS: '2' },
 };

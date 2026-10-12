@@ -2373,13 +2373,18 @@ export interface components {
         };
         PositionResponseDto: {
             id: string;
-            /** @example Cajero */
+            /** @example Cocina */
             name: string;
             description: string | null;
             isActive: boolean;
+            /**
+             * @description Empleados no retirados que tienen este cargo.
+             * @example 4
+             */
+            employeeCount: number;
         };
         CreatePositionDto: {
-            /** @example Cajero */
+            /** @example Supernumeraria de servicio */
             name: string;
             description?: string | null;
         };
@@ -5680,7 +5685,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorDto"];
                 };
             };
-            /** @description EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN */
+            /** @description EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN | POSITION_INACTIVE */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5807,7 +5812,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorDto"];
                 };
             };
-            /** @description EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN */
+            /** @description EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN | POSITION_INACTIVE */
             409: {
                 headers: {
                     [name: string]: unknown;

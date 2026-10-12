@@ -90,7 +90,9 @@ export class EmployeesController {
   @ApiCreatedResponse({ type: EmployeeResponseDto })
   @ApiErrors(
     { 400: 'VALIDATION_ERROR | INVALID_EMPLOYEE_DATES | INVALID_REFERENCE' },
-    { 409: 'EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN' },
+    {
+      409: 'EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN | POSITION_INACTIVE',
+    },
   )
   async create(@CurrentActor() actor: Actor, @Body() dto: CreateEmployeeDto) {
     const employee = await this.employees.create(
@@ -108,7 +110,7 @@ export class EmployeesController {
     { 400: 'VALIDATION_ERROR | INVALID_EMPLOYEE_DATES | INVALID_REFERENCE' },
     {
       404: 'EMPLOYEE_NOT_FOUND',
-      409: 'EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN',
+      409: 'EMPLOYEE_CODE_TAKEN | EMPLOYEE_DOCUMENT_TAKEN | POSITION_INACTIVE',
     },
   )
   async update(

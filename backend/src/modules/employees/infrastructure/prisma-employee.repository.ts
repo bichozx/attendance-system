@@ -127,8 +127,15 @@ export class PrismaEmployeeRepository extends EmployeeRepository {
     return row?.id ?? null;
   }
 
-  async positionExists(companyId: string, id: string): Promise<boolean> {
-    return (await this.prisma.position.count({ where: { id, companyId } })) > 0;
+  async positionIsActive(
+    companyId: string,
+    id: string,
+  ): Promise<boolean | null> {
+    const row = await this.prisma.position.findFirst({
+      where: { id, companyId },
+      select: { isActive: true },
+    });
+    return row ? row.isActive : null;
   }
 
   async storeExists(companyId: string, id: string): Promise<boolean> {

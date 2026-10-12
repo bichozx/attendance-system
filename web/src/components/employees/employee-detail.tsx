@@ -2,13 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 import { AccessMethodField, type AccessMethod } from '@/components/access-method';
 import { Badge, Button, Dialog, Field, Input, Notice, Select, Spinner } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, call, errorMessage, type Schemas } from '@/lib/api/client';
-import { EMPLOYEE_STATUS } from '@/lib/labels';
+import { DOCUMENT_TYPES, EMPLOYEE_STATUS } from '@/lib/labels';
 import { shortDate, localToday } from '@/lib/time';
 import { ContractsSection } from './contracts-section';
 import { EmployeeFields, type EmployeeDraft } from './employee-form';
@@ -18,11 +19,17 @@ type Status = Schemas['ChangeEmployeeStatusDto']['status'];
 
 const today = localToday;
 
-export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean; access: boolean; readContracts: boolean; manageContracts: boolean } }) {
+export function EmployeeDetail({ id, can, startEditing = false }: { id: string; startEditing?: boolean; can: { manage: boolean; access: boolean; readContracts: boolean; manageContracts: boolean } }) {
   const queryClient = useQueryClient();
   const employee = useQuery({ queryKey: ['employee', id], queryFn: () => call(api.GET('/employees/{id}', { params: { path: { id } } })) });
   const [statusOpen, setStatusOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
+  const router = useRouter();
+  // Entró desde "Editar" en la lista (?editar=1): se quita de la URL para que recargar no reabra el diálogo
+  useEffect(() => {
+    if (startEditing) router.replace(`/empleados/${id}`, { scroll: false });
+  }, [startEditing, id, router]);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['employee', id] });
@@ -50,9 +57,12 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
           </p>
         </div>
         {can.manage ? (
-          <Button variant="secondary" onClick={() => setStatusOpen(true)}>
-            Cambiar estado
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setEditing(true)}>Editar datos</Button>
+            <Button variant="secondary" onClick={() => setStatusOpen(true)}>
+              Cambiar estado
+            </Button>
+          </div>
         ) : null}
       </header>
 
@@ -61,7 +71,7 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
           <h2 id="datos" className="mb-3 text-xl font-semibold">
             Datos
           </h2>
-          <DataForm key={e.updatedAt} employee={e} canManage={can.manage} onSaved={refresh} />
+          <DataSummary employee={e} />
         </section>
 
         <div className="flex flex-col gap-10">
@@ -91,6 +101,18 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
         </div>
       </div>
 
+      <Dialog open={editing} onClose={() => setEditing(false)} title="Editar empleado">
+        {editing ? (
+          <EditForm
+            employee={e}
+            onCancel={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              refresh();
+            }}
+          />
+        ) : null}
+      </Dialog>
       <Dialog open={statusOpen} onClose={() => setStatusOpen(false)} title="Cambiar estado">
         <StatusForm employee={e} onDone={() => { setStatusOpen(false); refresh(); }} />
       </Dialog>
@@ -101,8 +123,33 @@ export function EmployeeDetail({ id, can }: { id: string; can: { manage: boolean
   );
 }
 
-/** Formulario de datos: su estado inicial sale del empleado (se reinicia si cambia en el servidor). */
-function DataForm({ employee: e, canManage, onSaved }: { employee: Employee; canManage: boolean; onSaved: () => void }) {
+/** Datos del empleado en modo lectura: editar es una acción explícita (botón "Editar datos"). */
+function DataSummary({ employee: e }: { employee: Employee }) {
+  const doc = DOCUMENT_TYPES.find(([k]) => k === e.documentType)?.[1] ?? e.documentType;
+  const rows: [string, React.ReactNode][] = [
+    ['Cargo', e.position?.name ?? <span className="text-muted">Sin cargo</span>],
+    ['Sede principal', e.defaultStore?.name ?? <span className="text-muted">Sin sede</span>],
+    ['Documento', `${doc} ${e.documentNumber}`],
+    ['Código interno', e.code],
+    ['Correo', e.email ?? <span className="text-muted">Sin correo</span>],
+    ['Celular', e.phone ?? <span className="text-muted">Sin celular</span>],
+    ['Fecha de ingreso', shortDate(e.hireDate)],
+    ['Fecha de nacimiento', e.birthDate ? shortDate(e.birthDate) : <span className="text-muted">Sin registrar</span>],
+  ];
+  return (
+    <dl className="grid gap-x-6 gap-y-4 rounded-ui border border-line bg-surface p-5 sm:grid-cols-2">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-sm text-muted">{label}</dt>
+          <dd className="mt-0.5 font-semibold break-words">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Edición de todos los datos. Su estado inicial sale del empleado (se monta al abrir el diálogo). */
+function EditForm({ employee: e, onCancel, onSaved }: { employee: Employee; onCancel: () => void; onSaved: () => void }) {
   const toast = useToast();
   const [draft, setDraft] = useState<EmployeeDraft>(() => ({
     code: e.code,
@@ -112,6 +159,7 @@ function DataForm({ employee: e, canManage, onSaved }: { employee: Employee; can
     lastName: e.lastName,
     email: e.email,
     phone: e.phone,
+    birthDate: e.birthDate,
     hireDate: e.hireDate,
     positionId: e.position?.id ?? null,
     defaultStoreId: e.defaultStore?.id ?? null,
@@ -122,10 +170,14 @@ function DataForm({ employee: e, canManage, onSaved }: { employee: Employee; can
         api.PATCH('/employees/{id}', {
           params: { path: { id: e.id } },
           body: {
+            code: draft.code,
+            documentType: draft.documentType,
+            documentNumber: draft.documentNumber,
             firstName: draft.firstName,
             lastName: draft.lastName,
             email: draft.email,
             phone: draft.phone,
+            birthDate: draft.birthDate,
             hireDate: draft.hireDate,
             positionId: draft.positionId,
             defaultStoreId: draft.defaultStoreId,
@@ -139,22 +191,21 @@ function DataForm({ employee: e, canManage, onSaved }: { employee: Employee; can
   });
   return (
     <form
-      className="flex flex-col gap-4 rounded-ui border border-line bg-surface p-5"
+      className="flex flex-col gap-4"
       onSubmit={(ev) => {
         ev.preventDefault();
         save.mutate();
       }}>
-      <fieldset disabled={!canManage} className="contents">
-        {save.error ? <Notice tone="error" title={errorMessage(save.error)} /> : null}
-        <EmployeeFields value={draft} onChange={setDraft} isNew={false} />
-      </fieldset>
-      {canManage ? (
-        <div>
-          <Button type="submit" loading={save.isPending}>
-            Guardar cambios
-          </Button>
-        </div>
-      ) : null}
+      {save.error ? <Notice tone="error" title={errorMessage(save.error)} /> : null}
+      <EmployeeFields value={draft} onChange={setDraft} isNew={false} currentPosition={e.position} canCreatePosition />
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" loading={save.isPending}>
+          Guardar cambios
+        </Button>
+      </div>
     </form>
   );
 }

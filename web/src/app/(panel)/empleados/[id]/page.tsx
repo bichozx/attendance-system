@@ -5,13 +5,15 @@ import { can, getSession } from '@/lib/server/session';
 
 export const metadata = { title: 'Ficha del empleado' };
 
-export default async function EmployeePage(props: { params: Promise<{ id: string }> }) {
+export default async function EmployeePage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ editar?: string }> }) {
   const { id } = await props.params;
+  const { editar } = await props.searchParams;
   const session = await getSession();
   if (!can(session, 'employees.read')) redirect('/');
   return (
     <EmployeeDetail
       id={id}
+      startEditing={editar === '1' && can(session, 'employees.manage')}
       can={{
         manage: can(session, 'employees.manage'),
         access: can(session, 'users.manage'),

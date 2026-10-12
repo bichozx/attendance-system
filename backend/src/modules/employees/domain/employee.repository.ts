@@ -35,7 +35,11 @@ export abstract class EmployeeRepository {
     userId: string,
   ): Promise<string | null>;
 
-  abstract positionExists(companyId: string, id: string): Promise<boolean>;
+  /** null si el cargo no existe EN ESTA EMPRESA. */
+  abstract positionIsActive(
+    companyId: string,
+    id: string,
+  ): Promise<boolean | null>;
   abstract storeExists(companyId: string, id: string): Promise<boolean>;
 
   abstract create(companyId: string, data: EmployeeData): Promise<EmployeeView>;

@@ -68,7 +68,7 @@ async function xlsxFile(rows) {
 
   console.log('— Validación (simulacro) de un Excel con errores');
   const good = [
-    { codigo: 'IMP-001', tipo_documento: 'CC', numero_documento: '90000001', nombres: 'Lucía', apellidos: 'Gómez', fecha_ingreso: new Date(Date.UTC(2026, 8, 1)), cargo: 'Cajero', sede: 'CENTRO', tipo_contrato: 'INDEFINIDO', salario: 1750905, horas_semanales: 42 },
+    { codigo: 'IMP-001', tipo_documento: 'CC', numero_documento: '90000001', nombres: 'Lucía', apellidos: 'Gómez', fecha_ingreso: new Date(Date.UTC(2026, 8, 1)), cargo: 'Caja', sede: 'CENTRO', tipo_contrato: 'INDEFINIDO', salario: 1750905, horas_semanales: 42 },
     { codigo: 'IMP-002', tipo_documento: 'CE', numero_documento: '90000002', nombres: 'Jorge', apellidos: 'Díaz', correo: 'jorge@demo.local', fecha_ingreso: '2026-09-01', acceso_app: 'SI' },
     { codigo: 'IMP-003', tipo_documento: 'PASAPORTE', numero_documento: 'AB12345', nombres: 'Mía', apellidos: 'Ruiz', fecha_ingreso: '15/09/2026' },
   ];
@@ -98,7 +98,7 @@ async function xlsxFile(rows) {
 
   console.log('— Importar un CSV como lo exporta Excel en Colombia');
   const csv = ['codigo;tipo_documento;numero_documento;nombres;apellidos;correo;telefono;fecha_nacimiento;fecha_ingreso;cargo;sede;tipo_contrato;salario;horas_semanales;fecha_fin_contrato;acceso_app',
-    'CSV-001;CC;1.020.304.050;Andrés;Peña;andres@demo.local;3105551234;12/04/1995;01/09/2026;Cajero;CENTRO;Término indefinido;2.300.000;42;;SI',
+    'CSV-001;CC;1.020.304.050;Andrés;Peña;andres@demo.local;3105551234;12/04/1995;01/09/2026;Caja;CENTRO;Término indefinido;2.300.000;42;;SI',
     'CSV-002;CC;1020304051;Valentina;Muñoz;;;;01/09/2026;;;Término fijo;1.750.905,50;36;31/12/2026;NO',
     'CSV-003;TI;1020304052;Sebastián;Ortíz;admin@demo.local;;;15/09/2026;;CENTRO;;;;;SI'].join('\r\n');
   const latin1 = Buffer.from(csv, 'latin1'); // "CSV (delimitado por comas)" de Excel en español: Windows-1252

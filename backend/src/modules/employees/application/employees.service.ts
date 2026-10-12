@@ -6,6 +6,7 @@ import {
   EmployeeDocumentTakenError,
   EmployeeNotFoundError,
   InvalidReferenceError,
+  PositionInactiveError,
 } from '../domain/employee.errors';
 import { EmployeeRepository } from '../domain/employee.repository';
 import { assertEmployeeDates } from '../domain/employee.rules';
@@ -72,7 +73,14 @@ export class EmployeesService {
       },
       id,
     );
-    await this.assertReferences(actor.companyId, changes);
+    await this.assertReferences(actor.companyId, {
+      // Guardar sin cambiar el cargo no exige que siga activo
+      positionId:
+        changes.positionId === before.position?.id
+          ? undefined
+          : changes.positionId,
+      defaultStoreId: changes.defaultStoreId,
+    });
 
     const after = await this.employees.update(actor.companyId, id, changes);
     await this.record(actor, id, 'employee.updated', before, after);
@@ -107,11 +115,13 @@ export class EmployeesService {
     companyId: string,
     refs: { positionId?: string | null; defaultStoreId?: string | null },
   ) {
-    if (
-      refs.positionId &&
-      !(await this.employees.positionExists(companyId, refs.positionId))
-    ) {
-      throw new InvalidReferenceError('positionId');
+    if (refs.positionId) {
+      const active = await this.employees.positionIsActive(
+        companyId,
+        refs.positionId,
+      );
+      if (active === null) throw new InvalidReferenceError('positionId');
+      if (!active) throw new PositionInactiveError();
     }
     if (
       refs.defaultStoreId &&

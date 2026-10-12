@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import { PageRequest, toSkipTake } from '../../../shared/application/page';
 import { isUniqueViolation } from '../../../shared/infrastructure/prisma/prisma-errors';
+import { DEFAULT_POSITIONS } from '../../../shared/domain/default-positions';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service';
 import {
   CompanyNotFoundError,
@@ -218,6 +219,12 @@ export class PrismaCompanyRepository extends CompanyRepository {
         const company = await tx.company.create({
           data,
           select: COMPANY_SELECT,
+        });
+        await tx.position.createMany({
+          data: DEFAULT_POSITIONS.map((name) => ({
+            companyId: company.id,
+            name,
+          })),
         });
         const adminUserId =
           admin.existingUserId ??

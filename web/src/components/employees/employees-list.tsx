@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDeferredValue, useState } from 'react';
 
-import { Badge, Button, Dialog, Empty, Input, Notice, PageHeader, Spinner, Table, Td, Th } from '@/components/ui';
+import { Badge, Button, Dialog, Empty, Input, Notice, PageHeader, Select, Spinner, Table, Td, Th } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, call, errorMessage } from '@/lib/api/client';
 import { EMPLOYEE_STATUS } from '@/lib/labels';
 import { EmployeeFields, emptyDraft, useDraft } from './employee-form';
+import { usePositions } from './position-select';
 
 const FILTERS = [
   ['', 'Todos'],
@@ -19,21 +20,23 @@ const FILTERS = [
   ['TERMINATED', 'Retirados'],
 ] as const;
 
-export function EmployeesList({ canManage }: { canManage: boolean }) {
+export function EmployeesList({ canManage, initialPositionId = '' }: { canManage: boolean; initialPositionId?: string }) {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<(typeof FILTERS)[number][0]>('ACTIVE');
+  const [positionId, setPositionId] = useState(initialPositionId);
   const [page, setPage] = useState(1);
+  const positions = usePositions(true);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useDraft(emptyDraft());
   const term = useDeferredValue(search.trim());
 
   const list = useQuery({
-    queryKey: ['employees', term, status, page],
+    queryKey: ['employees', term, status, positionId, page],
     queryFn: () =>
-      call(api.GET('/employees', { params: { query: { search: term || undefined, status: status || undefined, page, pageSize: 25 } } })),
+      call(api.GET('/employees', { params: { query: { search: term || undefined, status: status || undefined, positionId: positionId || undefined, page, pageSize: 25 } } })),
     placeholderData: keepPreviousData,
   });
 
@@ -77,6 +80,22 @@ export function EmployeesList({ canManage }: { canManage: boolean }) {
             setPage(1);
           }}
         />
+        <Select
+          aria-label="Filtrar por cargo"
+          className="w-full sm:w-56"
+          value={positionId}
+          onChange={(e) => {
+            setPositionId(e.target.value);
+            setPage(1);
+          }}>
+          <option value="">Todos los cargos</option>
+          {(positions.data ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {p.isActive ? '' : ' (desactivado)'}
+            </option>
+          ))}
+        </Select>
         <div className="flex flex-wrap gap-1" role="group" aria-label="Estado">
           {FILTERS.map(([value, label]) => (
             <button
@@ -96,7 +115,7 @@ export function EmployeesList({ canManage }: { canManage: boolean }) {
       {list.isPending ? <Spinner /> : null}
       {list.error ? <Notice tone="error" title="No se pudo cargar la lista">{errorMessage(list.error)}</Notice> : null}
       {list.data && list.data.items.length === 0 ? (
-        <Empty title={term ? `Nadie coincide con “${term}”` : 'No hay empleados con este estado'}>
+        <Empty title={term ? `Nadie coincide con “${term}”` : positionId ? 'Nadie tiene ese cargo con este estado' : 'No hay empleados con este estado'}>
           {canManage && !term ? 'Registra el primero con “Nuevo empleado” o carga varios con “Importar desde Excel”.' : null}
         </Empty>
       ) : null}
@@ -113,6 +132,11 @@ export function EmployeesList({ canManage }: { canManage: boolean }) {
                 <Th>Sede</Th>
                 <Th>Estado</Th>
                 <Th>App</Th>
+                {canManage ? (
+                  <Th>
+                    <span className="sr-only">Acciones</span>
+                  </Th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -133,6 +157,16 @@ export function EmployeesList({ canManage }: { canManage: boolean }) {
                     <Badge tone={EMPLOYEE_STATUS[e.status]?.tone}>{EMPLOYEE_STATUS[e.status]?.label ?? e.status}</Badge>
                   </Td>
                   <Td>{e.hasAppAccess ? 'Sí' : <span className="text-muted">No</span>}</Td>
+                  {canManage ? (
+                    <Td className="text-right">
+                      <Link
+                        href={`/empleados/${e.id}?editar=1`}
+                        aria-label={`Editar a ${e.firstName} ${e.lastName}`}
+                        className="text-sm font-semibold text-brand underline-offset-4 hover:underline">
+                        Editar
+                      </Link>
+                    </Td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -164,7 +198,7 @@ export function EmployeesList({ canManage }: { canManage: boolean }) {
             create.mutate();
           }}>
           {create.error ? <Notice tone="error" title={errorMessage(create.error)} /> : null}
-          <EmployeeFields value={draft} onChange={setDraft} isNew />
+          <EmployeeFields value={draft} onChange={setDraft} isNew canCreatePosition={canManage} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setCreating(false)}>
               Cancelar

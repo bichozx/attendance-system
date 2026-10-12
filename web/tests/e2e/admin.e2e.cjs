@@ -276,6 +276,54 @@ async function apiAs(email = 'admin@demo.local', password = 'Demo123!') {
     });
   }
 
+  if (section('positions')) {
+    console.log('— Cargos');
+    await step('cargos', async () => {
+      await page.goto(B + '/cargos');
+      await page.locator('tbody tr').first().waitFor();
+      const names = await page.locator('tbody tr td:first-child span.font-semibold').allInnerTexts();
+      expect(`Trae los cargos de restaurante (${names.join(', ')})`, ['Bar', 'Caja', 'Cocina', 'Host', 'Líder', 'Servicio', 'Supernumeraria de servicio'].every((n) => names.includes(n)));
+      await page.getByRole('button', { name: 'Nuevo cargo' }).click();
+      const d = page.getByRole('dialog', { name: 'Nuevo cargo' });
+      await d.getByLabel('Nombre del cargo').fill('Steward');
+      await d.getByRole('button', { name: 'Crear cargo' }).click();
+      await page.getByText('Cargo “Steward” creado').waitFor();
+      expect('Crear un cargo', (await A('GET', '/positions')).some((p) => p.name === 'Steward'));
+      await page.getByRole('button', { name: 'Nuevo cargo' }).click();
+      await d.getByLabel('Nombre del cargo').fill('COCINA');
+      await d.getByRole('button', { name: 'Crear cargo' }).click();
+      expect('Un nombre repetido se explica', (await d.getByRole('alert').innerText()).includes('Ya existe un cargo'));
+      await d.getByRole('button', { name: 'Cancelar' }).click();
+      await page.getByRole('button', { name: 'Editar el cargo Steward' }).click();
+      const e = page.getByRole('dialog', { name: 'Editar cargo' });
+      await e.getByLabel('Nombre del cargo').fill('Steward de cocina');
+      await e.getByRole('button', { name: 'Guardar' }).click();
+      await page.getByText('Cargo actualizado').waitFor();
+      await page.getByRole('button', { name: 'Desactivar el cargo Steward de cocina' }).click();
+      await page.getByText('“Steward de cocina” quedó desactivado').waitFor();
+      expect('Renombrar y desactivar', (await A('GET', '/positions?includeInactive=true')).some((p) => p.name === 'Steward de cocina' && !p.isActive));
+
+      // Desde la lista: "Editar" abre el diálogo y se crea un cargo sin salir de él
+      const emp = (await A('GET', '/employees?pageSize=1&status=ACTIVE')).items[0];
+      await page.goto(B + '/empleados');
+      await page.getByRole('link', { name: `Editar a ${emp.firstName} ${emp.lastName}` }).click();
+      const ed = page.getByRole('dialog', { name: 'Editar empleado' });
+      await ed.waitFor();
+      await ed.getByRole('button', { name: '+ Nuevo cargo' }).click();
+      await ed.getByLabel('Nombre del nuevo cargo').fill('Barista');
+      await ed.getByLabel('Nombre del nuevo cargo').press('Enter');
+      await page.waitForFunction(() => [...document.querySelectorAll('dialog[open] select option:checked')].some((o) => o.textContent === 'Barista'));
+      expect('Crear un cargo desde el formulario lo deja seleccionado', ed !== null);
+      await ed.getByRole('button', { name: 'Guardar cambios' }).click();
+      await page.getByText('Cambios guardados').waitFor();
+      expect('El empleado queda con el cargo nuevo', (await A('GET', `/employees/${emp.id}`)).position?.name === 'Barista');
+      await page.goto(B + '/empleados');
+      await page.getByLabel('Filtrar por cargo').selectOption({ label: 'Barista' });
+      await page.getByRole('link', { name: `${emp.firstName} ${emp.lastName}`, exact: true }).waitFor();
+      expect('Filtrar la lista por cargo', (await page.locator('tbody tr').count()) === 1);
+    });
+  }
+
   if (section('audit')) {
     console.log('— Auditoría');
     await step('auditoria', async () => {

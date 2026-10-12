@@ -83,6 +83,15 @@ export class PositionNotFoundError extends DomainError {
   }
 }
 
+/** Un cargo desactivado ya no se asigna (quien ya lo tiene, lo conserva). */
+export class PositionInactiveError extends DomainError {
+  readonly code = 'POSITION_INACTIVE';
+  readonly kind = 'CONFLICT';
+  constructor() {
+    super('Ese cargo está desactivado: actívelo o elija otro');
+  }
+}
+
 export class PositionNameTakenError extends DomainError {
   readonly code = 'POSITION_NAME_TAKEN';
   readonly kind = 'CONFLICT';

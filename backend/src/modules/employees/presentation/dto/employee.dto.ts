@@ -258,7 +258,7 @@ export class ListPositionsQueryDto {
 }
 
 export class CreatePositionDto {
-  /** @example "Cajero" */
+  /** @example "Supernumeraria de servicio" */
   @Transform(trim)
   @IsString()
   @MinLength(2)
@@ -340,8 +340,10 @@ export class GrantAccessResponseDto {
 
 export class PositionResponseDto {
   id: string;
-  /** @example "Cajero" */
+  /** @example "Cocina" */
   name: string;
   description: string | null;
   isActive: boolean;
+  /** Empleados no retirados que tienen este cargo. @example 4 */
+  employeeCount: number;
 }

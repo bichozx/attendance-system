@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '../../../generated/prisma/client';
 import { isUniqueViolation } from '../../../shared/infrastructure/prisma/prisma-errors';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service';
 import {
@@ -13,7 +14,18 @@ const SELECT = {
   name: true,
   description: true,
   isActive: true,
-} as const;
+  _count: {
+    select: {
+      employees: { where: { deletedAt: null, status: { not: 'TERMINATED' } } },
+    },
+  },
+} satisfies Prisma.PositionSelect;
+
+type Row = Prisma.PositionGetPayload<{ select: typeof SELECT }>;
+
+function toView({ _count, ...row }: Row): PositionView {
+  return { ...row, employeeCount: _count.employees };
+}
 
 @Injectable()
 export class PrismaPositionRepository extends PositionRepository {
@@ -21,19 +33,24 @@ export class PrismaPositionRepository extends PositionRepository {
     super();
   }
 
-  list(companyId: string, includeInactive: boolean): Promise<PositionView[]> {
-    return this.prisma.position.findMany({
+  async list(
+    companyId: string,
+    includeInactive: boolean,
+  ): Promise<PositionView[]> {
+    const rows = await this.prisma.position.findMany({
       where: { companyId, ...(includeInactive ? {} : { isActive: true }) },
       select: SELECT,
       orderBy: { name: 'asc' },
     });
+    return rows.map(toView);
   }
 
-  findById(companyId: string, id: string): Promise<PositionView | null> {
-    return this.prisma.position.findFirst({
+  async findById(companyId: string, id: string): Promise<PositionView | null> {
+    const row = await this.prisma.position.findFirst({
       where: { id, companyId },
       select: SELECT,
     });
+    return row ? toView(row) : null;
   }
 
   async findIdByName(companyId: string, name: string): Promise<string | null> {
@@ -49,10 +66,12 @@ export class PrismaPositionRepository extends PositionRepository {
     data: { name: string; description: string | null },
   ): Promise<PositionView> {
     try {
-      return await this.prisma.position.create({
-        data: { ...data, companyId },
-        select: SELECT,
-      });
+      return toView(
+        await this.prisma.position.create({
+          data: { ...data, companyId },
+          select: SELECT,
+        }),
+      );
     } catch (error) {
       if (isUniqueViolation(error)) throw new PositionNameTakenError(data.name);
       throw error;

@@ -14,6 +14,7 @@ export const NAV: NavItem[] = [
   { href: '/turnos', label: 'Turnos', permission: 'shifts.read', group: 'daily' },
   { href: '/empleados', label: 'Empleados', permission: 'employees.read', group: 'daily' },
   { href: '/reportes', label: 'Reportes', permission: 'reports.read', group: 'daily' },
+  { href: '/cargos', label: 'Cargos', permission: 'employees.read', group: 'admin' },
   { href: '/establecimientos', label: 'Establecimientos', permission: 'stores.read', group: 'admin' },
   { href: '/usuarios', label: 'Usuarios', permission: 'users.read', group: 'admin' },
   { href: '/roles', label: 'Roles y permisos', permission: 'roles.read', group: 'admin' },

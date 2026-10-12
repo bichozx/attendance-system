@@ -74,7 +74,7 @@ async function apiAdmin() {
     await page.goto(B + '/empleados');
     await page.getByLabel('Buscar empleados').fill('Salazar');
     for (let i = 0; i < 30 && (await page.locator('tbody tr').count()) !== 1; i++) await page.waitForTimeout(200);
-    expect('La búsqueda encuentra a Marta Salazar', (await page.locator('tbody tr').count()) === 1 && (await page.getByRole('link', { name: 'Marta Salazar' }).isVisible()));
+    expect('La búsqueda encuentra a Marta Salazar', (await page.locator('tbody tr').count()) === 1 && (await page.getByRole('link', { name: 'Marta Salazar', exact: true }).isVisible()));
     await page.getByLabel('Buscar empleados').fill('');
 
     await page.getByRole('button', { name: 'Nuevo empleado' }).click();
@@ -89,13 +89,19 @@ async function apiAdmin() {
     await page.waitForURL(/\/empleados\/[0-9a-f-]{36}$/);
     newId = page.url().split('/').pop();
     await page.getByRole('heading', { name: 'Valentina Muñoz' }).waitFor();
-    expect('Alta desde el diálogo y abre su ficha (código en mayúsculas: EMP-200)', await page.getByText(/EMP-200/).isVisible());
+    expect('Alta desde el diálogo y abre su ficha (código en mayúsculas: EMP-200)', await page.locator('header').getByText(/EMP-200/).isVisible());
 
-    await page.getByLabel('Celular').fill('3105551234');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Editar datos' }).click();
+    const ed = page.getByRole('dialog', { name: 'Editar empleado' });
+    await ed.getByLabel('Celular').fill('3105551234');
+    await ed.getByLabel('Número de documento').fill('1020304051');
+    await ed.getByLabel('Cargo').selectOption({ label: 'Cocina' });
+    await ed.getByRole('button', { name: 'Guardar cambios' }).click();
     await page.getByText('Cambios guardados').waitFor();
     const saved = await A('GET', `/employees/${newId}`);
-    expect('Editar datos guarda en el servidor', saved.phone === '3105551234');
+    expect('"Editar datos" guarda celular, documento y cargo', saved.phone === '3105551234' && saved.documentNumber === '1020304051' && saved.position?.name === 'Cocina');
+    await page.locator('dl', { hasText: 'Cocina' }).waitFor();
+    expect('La ficha muestra los datos nuevos', await page.locator('dl').getByText('3105551234').isVisible());
 
     await page.getByRole('button', { name: 'Dar acceso a la app' }).click();
     const ad = page.getByRole('dialog', { name: 'Dar acceso a la app' });

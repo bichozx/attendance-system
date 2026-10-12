@@ -57,4 +57,6 @@ export interface PositionView {
   name: string;
   description: string | null;
   isActive: boolean;
+  /** Empleados no retirados que tienen este cargo. */
+  employeeCount: number;
 }

@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { DEFAULT_POSITIONS } from '../src/shared/domain/default-positions';
 import { hash } from '@node-rs/argon2';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -401,10 +402,12 @@ async function seedDemoCompany(roles: Record<string, string>) {
       },
     },
   ];
-  const demoEmployees = MINIMAL_SEED ? allDemoEmployees.slice(0, 1) : allDemoEmployees;
+  const demoEmployees = MINIMAL_SEED
+    ? allDemoEmployees.slice(0, 1)
+    : allDemoEmployees;
 
   const positions = await Promise.all(
-    ['Cajero', 'Supervisor', 'Auxiliar'].map(async (name) =>
+    DEFAULT_POSITIONS.map(async (name) =>
       prisma.position.upsert({
         where: { companyId_name: { companyId: company.id, name } },
         update: {},
@@ -413,6 +416,12 @@ async function seedDemoCompany(roles: Record<string, string>) {
     ),
   );
   const positionByName = new Map(positions.map((p) => [p.name, p]));
+  // Supervisores → Líder; el resto se reparte entre los cargos de piso
+  const FLOOR = ['Servicio', 'Cocina', 'Caja', 'Bar', 'Host'];
+  const demoPosition = (d: (typeof demoEmployees)[number]) =>
+    d.roleCode === 'SUPERVISOR'
+      ? 'Líder'
+      : FLOOR[demoEmployees.indexOf(d) % FLOOR.length];
 
   const stores = await Promise.all(
     [
@@ -435,15 +444,17 @@ async function seedDemoCompany(roles: Record<string, string>) {
     ]
       .slice(0, MINIMAL_SEED ? 1 : undefined)
       .map(async (store) =>
-      prisma.store.upsert({
-        where: { companyId_code: { companyId: company.id, code: store.code } },
-        update: {},
-        create: {
-          companyId: company.id,
-          ...store,
-        },
-      }),
-    ),
+        prisma.store.upsert({
+          where: {
+            companyId_code: { companyId: company.id, code: store.code },
+          },
+          update: {},
+          create: {
+            companyId: company.id,
+            ...store,
+          },
+        }),
+      ),
   );
   const primaryStore = stores[0];
 
@@ -509,9 +520,7 @@ async function seedDemoCompany(roles: Record<string, string>) {
         documentType: demoEmployee.employee.documentType,
         documentNumber: demoEmployee.employee.documentNumber,
         hireDate: demoEmployee.employee.hireDate,
-        positionId: positionByName.get(
-          demoEmployee.roleCode === 'SUPERVISOR' ? 'Supervisor' : 'Cajero',
-        )?.id,
+        positionId: positionByName.get(demoPosition(demoEmployee))?.id,
         defaultStoreId: primaryStore.id,
       },
       create: {
@@ -524,9 +533,7 @@ async function seedDemoCompany(roles: Record<string, string>) {
         lastName: demoEmployee.employee.lastName,
         email: demoEmployee.email,
         hireDate: demoEmployee.employee.hireDate,
-        positionId: positionByName.get(
-          demoEmployee.roleCode === 'SUPERVISOR' ? 'Supervisor' : 'Cajero',
-        )?.id,
+        positionId: positionByName.get(demoPosition(demoEmployee))?.id,
         defaultStoreId: primaryStore.id,
       },
     });
