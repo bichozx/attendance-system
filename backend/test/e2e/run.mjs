@@ -15,6 +15,7 @@
  *   E2E_RESET_CMD     cómo reiniciar la base (por defecto: prisma migrate reset + seed)
  */
 import { execSync, spawn, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, openSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -125,6 +126,7 @@ async function runSuite(name) {
       ...process.env,
       DATABASE_URL: DB_URL,
       SEED_DEMO_SCENARIOS: 'false',
+      SEED_PLATFORM_ADMIN_PASSWORD: `E2e-${randomBytes(32).toString('hex')}`,
     },
     stdio: 'pipe',
     shell: true,

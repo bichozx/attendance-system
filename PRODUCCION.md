@@ -9,6 +9,8 @@
 - [ ] HTTPS delante de la API (Caddy, Nginx, Cloudflare o el balanceador de su proveedor) y
       `TRUST_PROXY_HOPS` igual al número de proxies.
 - [ ] `CORS_ORIGINS` con la URL exacta del panel web.
+- [ ] `SEED_PLATFORM_ADMIN_PASSWORD` definida en configuración no versionada antes de ejecutar el seed: contraseña aleatoria de 12-128 caracteres, con letras y números.
+- [ ] Los puertos 3000 y 3100 solo están enlazados a `127.0.0.1`; exponga públicamente únicamente el proxy HTTPS.
 - [ ] HTTPS también delante del panel (puerto 3100): sus cookies de sesión son `Secure` y el
       navegador no las guarda por HTTP.
 - [ ] Copias de seguridad automáticas de PostgreSQL (diarias, con prueba de restauración).

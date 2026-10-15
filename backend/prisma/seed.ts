@@ -262,10 +262,9 @@ async function seedSystemRoles() {
 // 3. SUPERADMINISTRADOR DE LA PLATAFORMA
 // =====================================================================
 
-async function seedPlatformAdmin() {
+async function seedPlatformAdmin(password: string) {
   const email =
     process.env.SEED_PLATFORM_ADMIN_EMAIL ?? 'superadmin@asistencia.local';
-  const password = process.env.SEED_PLATFORM_ADMIN_PASSWORD ?? 'Cambiar123!';
 
   await prisma.user.upsert({
     where: { email },
@@ -872,9 +871,21 @@ async function seedDemoScenarios() {
 // =====================================================================
 
 async function main() {
+  const platformAdminPassword = process.env.SEED_PLATFORM_ADMIN_PASSWORD;
+  if (
+    !platformAdminPassword ||
+    platformAdminPassword.length < 12 ||
+    platformAdminPassword.length > 128 ||
+    !/^(?=.*[A-Za-z])(?=.*\d)/.test(platformAdminPassword)
+  ) {
+    throw new Error(
+      'SEED_PLATFORM_ADMIN_PASSWORD is required and must be 12-128 characters with at least one letter and one number.',
+    );
+  }
+
   await seedPermissions();
   const roles = await seedSystemRoles();
-  await seedPlatformAdmin();
+  await seedPlatformAdmin(platformAdminPassword);
 
   if (process.env.NODE_ENV !== 'production') {
     await seedDemoCompany(roles);

@@ -50,7 +50,7 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   web:
     build: { context: "${WEB_CONTEXT:-./web}" }
@@ -62,7 +62,7 @@ services:
     depends_on:
       api: { condition: service_healthy }
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
 
 volumes:
   pgdata:
