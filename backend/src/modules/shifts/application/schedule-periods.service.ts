@@ -132,14 +132,18 @@ export class SchedulePeriodsService {
       'PUBLISHED',
       actor.userId,
     );
-    const userIds = await this.periods.findAssignedUserIds(actor.companyId, id);
+    const people = await this.periods.findAssignedUsers(actor.companyId, id);
+    const range = `${shortDate(after.startDate)} al ${shortDate(after.endDate)}`;
     await this.notifier.notify(
-      userIds.map((userId) => ({
+      people.map(({ userId, shifts }) => ({
         companyId: actor.companyId,
         userId,
         type: 'SCHEDULE_PUBLISHED' as const,
-        title: 'Nueva programación publicada',
-        body: `Ya puedes ver tus turnos del periodo "${after.name}".`,
+        title:
+          shifts === 1
+            ? 'Tienes 1 turno programado'
+            : `Tienes ${shifts} turnos programados`,
+        body: `Se publicó "${after.name}" (${range}). Revisa tus horarios en Turnos.`,
         data: { schedulePeriodId: id },
       })),
     );
@@ -150,7 +154,7 @@ export class SchedulePeriodsService {
       { status: before.status },
       {
         status: after.status,
-        notifiedUsers: userIds.length,
+        notifiedUsers: people.length,
       },
     );
     return after;
@@ -258,4 +262,15 @@ function defaultName(start: string, end: string): string {
     return `Quincena ${sd}–${ed} ${MONTHS[em - 1]} ${ey}`;
   const from = `${sd} ${MONTHS[sm - 1]}${sy !== ey ? ` ${sy}` : ''}`;
   return `Periodo ${from} – ${ed} ${MONTHS[em - 1]} ${ey}`;
+}
+
+/** Fecha sin hora (Date en UTC a medianoche) → "14 oct". */
+function shortDate(d: Date): string {
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+  })
+    .format(d)
+    .replace(/\./g, '');
 }

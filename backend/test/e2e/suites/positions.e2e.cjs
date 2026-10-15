@@ -1,6 +1,8 @@
 // Prueba de punta a punta: positions (cargos) y edición de empleados. Se ejecuta con test/e2e/run.mjs.
 const { Client } = require('pg');
 const B = (process.env.E2E_BASE_URL ?? 'http://localhost:3999') + '/api/v1';
+// La genera test/e2e/run.mjs para cada suite (el seed la usa para el superadmin)
+const SA_PASSWORD = process.env.E2E_PLATFORM_ADMIN_PASSWORD;
 let pass = 0, fail = 0;
 const call = async (m, p, t, b) => { const r = await fetch(B + p, { method: m, headers: { 'Content-Type': 'application/json', ...(t && { Authorization: 'Bearer ' + t }) }, body: b && JSON.stringify(b) }); const x = await r.text(); return { status: r.status, body: x ? JSON.parse(x) : null }; };
 const check = (l, r, s, c) => { const ok = r.status === s && (!c || r.body?.code === c); ok ? pass++ : fail++; console.log(`${ok ? '✔' : '✘'} ${l.padEnd(66)} ${r.status} ${r.body?.code ?? ''}${ok ? '' : ' ← esperado ' + s + ' ' + (c ?? '') + ' ' + JSON.stringify(r.body).slice(0, 300)}`); return r; };
@@ -58,7 +60,7 @@ const DEFAULTS = ['Bar', 'Caja', 'Cocina', 'Host', 'Líder', 'Servicio', 'Supern
   expect('     Ana y Luis', filtered.total === 2, String(filtered.total));
 
   console.log('— Empresa nueva');
-  const SA = (await login('superadmin@asistencia.local', 'Cambiar123!')).accessToken;
+  const SA = (await login('superadmin@asistencia.local', SA_PASSWORD)).accessToken;
   const co = check('Superadmin crea una empresa', await call('POST', '/platform/companies', SA, { name: 'Restaurante Prueba', admin: { email: 'admin@restprueba.co', firstName: 'Rita', lastName: 'Prueba' } }), 201).body;
   const names = (await db.query(`SELECT name FROM positions WHERE "companyId"=$1 ORDER BY name`, [co.company?.id ?? co.id])).rows.map((r) => r.name);
   expect(`     arranca con los 7 cargos (${names.join(', ')})`, JSON.stringify(names) === JSON.stringify(DEFAULTS));

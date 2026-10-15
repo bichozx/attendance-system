@@ -2,6 +2,8 @@
 const fs = require('fs');
 const { Client } = require('pg');
 const B = (process.env.E2E_BASE_URL ?? 'http://localhost:3999') + '/api/v1';
+// La genera test/e2e/run.mjs para cada suite (el seed la usa para el superadmin)
+const SA_PASSWORD = process.env.E2E_PLATFORM_ADMIN_PASSWORD;
 let pass = 0, fail = 0;
 // El ejecutor sube el límite de logins para las pruebas; sin él, hay que esperar el minuto
 const RATE_PAUSE = Number(process.env.E2E_RATE_PAUSE_MS ?? 61_000);
@@ -20,7 +22,7 @@ const day = (n) => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.ge
   const q = async (s, p) => (await db.query(s, p)).rows;
 
   console.log('— Acceso a la plataforma');
-  const SA = check('Superadmin inicia sesión (sin empresa)', await login('superadmin@asistencia.local', 'Cambiar123!'), 200).body.accessToken;
+  const SA = check('Superadmin inicia sesión (sin empresa)', await login('superadmin@asistencia.local', SA_PASSWORD), 200).body.accessToken;
   const A = (await login('admin@demo.local')).body.accessToken;
   const E = (await login('empleado@demo.local')).body.accessToken;
   check('Admin de empresa (con TODOS los permisos) entra a /platform', await call('GET', '/platform/companies', A), 403, 'FORBIDDEN');

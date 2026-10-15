@@ -3,6 +3,8 @@
 // sesión, se retira el acceso, se desactiva la cuenta o se suspende la empresa.
 const { Client } = require('pg');
 const B = (process.env.E2E_BASE_URL ?? 'http://localhost:3999') + '/api/v1';
+// La genera test/e2e/run.mjs para cada suite (el seed la usa para el superadmin)
+const SA_PASSWORD = process.env.E2E_PLATFORM_ADMIN_PASSWORD;
 let pass = 0, fail = 0;
 const call = async (m, p, t, b) => { const r = await fetch(B + p, { method: m, headers: { 'Content-Type': 'application/json', ...(t && { Authorization: 'Bearer ' + t }) }, body: b && JSON.stringify(b) }); const x = await r.text(); return { status: r.status, body: x ? JSON.parse(x) : null }; };
 const check = (l, r, s, c) => { const ok = r.status === s && (!c || r.body?.code === c); ok ? pass++ : fail++; console.log(`${ok ? '✔' : '✘'} ${l.padEnd(64)} ${r.status} ${r.body?.code ?? ''}${ok ? '' : ' ← esperado ' + s + ' ' + (c ?? '') + ' ' + JSON.stringify(r.body).slice(0, 300)}`); return r; };
@@ -52,7 +54,7 @@ const login = async (email, password = 'Demo123!') => (await call('POST', '/auth
   check('Reactivada: la sesión que no se cerró vuelve a funcionar', await call('GET', '/auth/me', s4.accessToken), 200);
 
   console.log('— Superadmin sin empresa');
-  const sa = await login('superadmin@asistencia.local', 'Cambiar123!');
+  const sa = await login('superadmin@asistencia.local', SA_PASSWORD);
   check('Superadmin opera la plataforma', await call('GET', '/platform/companies', sa.accessToken), 200);
   await db.query(`UPDATE users SET "isPlatformAdmin"=false WHERE email='superadmin@asistencia.local'`);
   check('Le quitan el rol de plataforma: el token deja de servir', await call('GET', '/platform/companies', sa.accessToken), 401);

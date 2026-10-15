@@ -144,21 +144,29 @@ export class PrismaSchedulePeriodRepository extends SchedulePeriodRepository {
     });
   }
 
-  async findAssignedUserIds(companyId: string, id: string): Promise<string[]> {
+  async findAssignedUsers(
+    companyId: string,
+    id: string,
+  ): Promise<{ userId: string; shifts: number }[]> {
+    const inPeriod = {
+      status: 'ASSIGNED' as const,
+      shift: { schedulePeriodId: id, status: 'SCHEDULED' as const },
+    };
     const rows = await this.prisma.employee.findMany({
       where: {
         companyId,
         userId: { not: null },
-        shiftAssignments: {
-          some: {
-            status: 'ASSIGNED',
-            shift: { schedulePeriodId: id, status: 'SCHEDULED' },
-          },
-        },
+        shiftAssignments: { some: inPeriod },
       },
-      select: { userId: true },
+      select: {
+        userId: true,
+        _count: { select: { shiftAssignments: { where: inPeriod } } },
+      },
     });
-    return rows.map((r) => r.userId!);
+    return rows.map((r) => ({
+      userId: r.userId!,
+      shifts: r._count.shiftAssignments,
+    }));
   }
 
   async companyTimeZone(companyId: string): Promise<string> {

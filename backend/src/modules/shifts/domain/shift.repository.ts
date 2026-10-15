@@ -43,11 +43,11 @@ export abstract class SchedulePeriodRepository {
   /** Borra el periodo con sus turnos y asignaciones (solo borradores). */
   abstract deleteWithShifts(companyId: string, id: string): Promise<void>;
   abstract countActiveShifts(companyId: string, id: string): Promise<number>;
-  /** Usuarios (con app) que tienen turnos activos en el periodo. */
-  abstract findAssignedUserIds(
+  /** Personas con acceso a la app y turnos en el periodo, con cuántos turnos tiene cada una. */
+  abstract findAssignedUsers(
     companyId: string,
     id: string,
-  ): Promise<string[]>;
+  ): Promise<{ userId: string; shifts: number }[]>;
   abstract companyTimeZone(companyId: string): Promise<string>;
 }
 

@@ -66,7 +66,8 @@ const day = (n) => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.ge
   check('Publicar', await call('POST', `/schedule-periods/${P}/publish`, A), 200);
   check('Publicar de nuevo', await call('POST', `/schedule-periods/${P}/publish`, A), 409, 'SCHEDULE_PERIOD_STATUS');
   const notif = await q(`SELECT type, title, body FROM notifications WHERE "userId"=$1`, [carlos.userId]);
-  expect('     Carlos recibió notificación de publicación', notif.some(n => n.type === 'SCHEDULE_PUBLISHED'), `"${notif[0]?.title}"`);
+  const pub = notif.find(n => n.type === 'SCHEDULE_PUBLISHED');
+  expect('     Carlos recibió notificación de publicación con cuántos turnos tiene', pub?.title === 'Tienes 3 turnos programados', `"${pub?.title}" — ${pub?.body}`);
   mine = check('Carlos consulta sus turnos (publicado)', await call('GET', `/me/shifts?from=${day(0)}&to=${day(20)}`, E), 200);
   expect(`     ve ${mine.body.shifts.length} turnos, sin datos de compañeros`, mine.body.shifts.length === 3 && !('assignments' in mine.body.shifts[0]));
   check('Cambiar fechas de un periodo publicado', await call('PATCH', `/schedule-periods/${P}`, A, { endDate: day(17) }), 409, 'SCHEDULE_PERIOD_STATUS');
@@ -88,6 +89,30 @@ const day = (n) => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.ge
   check('Cancelarlo otra vez', await call('POST', `/shifts/${s1.id}/cancel`, A, {}), 409, 'SHIFT_CANCELLED');
   check('Asignar a un turno cancelado', await call('POST', `/shifts/${s1.id}/assignments`, A, { employeeIds: [luis] }), 409, 'SHIFT_CANCELLED');
   check('Ahora ese horario queda libre para Carlos', await call('POST', '/shifts', A, { storeId: store.id, schedulePeriodId: P, date: day(3), startTime: '16:00', endTime: '20:00', employeeIds: [carlos.id] }), 201);
+
+  console.log('— Turnos sin periodo: el empleado los ve de inmediato, así que se le avisa');
+  const countShiftNotes = async () => (await q(`SELECT count(*)::int n FROM notifications WHERE "userId"=$1 AND type='SHIFT_CHANGED'`, [carlos.userId]))[0].n;
+  let n0 = await countShiftNotes();
+  check('Semana de Carlos (5 turnos) sin periodo, en un solo envío', await call('POST', '/shifts/bulk', A, { storeId: store.id, shifts: Array.from({ length: 5 }, (_, i) => ({ date: day(50 + i), startTime: '07:00', endTime: '15:00', employeeIds: [carlos.id] })) }), 201);
+  const week = await q(`SELECT title, body FROM notifications WHERE "userId"=$1 AND type='SHIFT_CHANGED' ORDER BY "createdAt" DESC LIMIT 1`, [carlos.userId]);
+  expect('     UN solo aviso para toda la semana (no 5)', (await countShiftNotes()) === n0 + 1);
+  expect('     "Tienes 5 turnos nuevos" con los primeros días', week[0]?.title === 'Tienes 5 turnos nuevos' && / y 2 más/.test(week[0]?.body), `🔔 ${week[0]?.title}: ${week[0]?.body}`);
+  n0 = await countShiftNotes();
+  const solo = check('Un turno suelto sin periodo', await call('POST', '/shifts', A, { storeId: store.id, date: day(56), startTime: '10:00', endTime: '18:00', employeeIds: [carlos.id] }), 201).body;
+  const one = await q(`SELECT title, body FROM notifications WHERE "userId"=$1 AND type='SHIFT_CHANGED' ORDER BY "createdAt" DESC LIMIT 1`, [carlos.userId]);
+  expect('     "Tienes un nuevo turno" con día, hora y sede', (await countShiftNotes()) === n0 + 1 && one[0]?.title === 'Tienes un nuevo turno' && /10:00–18:00 en Tienda Centro/.test(one[0]?.body), `🔔 ${one[0]?.body}`);
+  const empty = check('Turno sin periodo y sin nadie asignado', await call('POST', '/shifts', A, { storeId: store.id, date: day(57), startTime: '10:00', endTime: '18:00' }), 201).body;
+  n0 = await countShiftNotes();
+  check('Asignar a Carlos después', await call('POST', `/shifts/${empty.id}/assignments`, A, { employeeIds: [carlos.id] }), 200);
+  expect('     se le avisa al asignarlo', (await countShiftNotes()) === n0 + 1);
+  check('Cambiar la hora del turno suelto', await call('PATCH', `/shifts/${solo.id}`, A, { startTime: '11:00', endTime: '19:00' }), 200);
+  check('Cancelar el turno suelto', await call('POST', `/shifts/${solo.id}/cancel`, A, { reason: 'Cierre temprano' }), 200);
+  const last2 = await q(`SELECT title FROM notifications WHERE "userId"=$1 AND type='SHIFT_CHANGED' ORDER BY "createdAt" DESC LIMIT 2`, [carlos.userId]);
+  expect('     avisos de cambio de horario y de cancelación', last2.map(n => n.title).join(' | ') === 'Tu turno fue cancelado | Cambió el horario de tu turno', last2.map(n => n.title).join(' | '));
+  n0 = await countShiftNotes();
+  const P2 = (await call('POST', '/schedule-periods', A, { storeId: store.id, startDate: day(70), endDate: day(76) })).body.id;
+  check('Turno de Carlos en un periodo en BORRADOR', await call('POST', '/shifts', A, { storeId: store.id, schedulePeriodId: P2, date: day(71), startTime: '08:00', endTime: '16:00', employeeIds: [carlos.id] }), 201);
+  expect('     en borrador NO se avisa (se avisa al publicar)', (await countShiftNotes()) === n0);
 
   console.log('— Concurrencia: 2 admins asignan a la misma persona a la vez');
   let ok = 0, conflicts = 0;

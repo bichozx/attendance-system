@@ -26,7 +26,11 @@ import {
   ShiftRepository,
   ShiftToCreate,
 } from '../domain/shift.repository';
-import { assertShiftTiming, unavailabilityReason } from '../domain/shift.rules';
+import {
+  assertShiftTiming,
+  isVisibleToEmployees,
+  unavailabilityReason,
+} from '../domain/shift.rules';
 import type {
   PeriodView,
   SchedulingStore,
@@ -186,18 +190,12 @@ export class ShiftsService {
       actor.userId,
     );
 
-    if (period?.status === 'PUBLISHED') {
-      for (const id of ids) {
-        const shift = await this.get(actor.companyId, id);
-        await this.announceAssignments(
-          actor,
-          shift,
-          shift.assignments.map((a) => ({
-            assignmentId: a.id,
-            employeeId: a.employeeId,
-          })),
-        );
-      }
+    // Sin periodo o con periodo publicado, el empleado ya ve el turno: se le avisa.
+    // (En borrador se avisa una sola vez, al publicar el periodo.)
+    if (isVisibleToEmployees(period?.status ?? null)) {
+      const created: ShiftView[] = [];
+      for (const id of ids) created.push(await this.get(actor.companyId, id));
+      await this.announceNewShifts(actor, created);
     }
     await this.audit.record({
       companyId: actor.companyId,
@@ -265,7 +263,7 @@ export class ShiftsService {
     const timeChanged =
       before.startsAt.getTime() !== after.startsAt.getTime() ||
       before.endsAt.getTime() !== after.endsAt.getTime();
-    if (timeChanged && before.periodStatus === 'PUBLISHED') {
+    if (timeChanged && isVisibleToEmployees(before.periodStatus)) {
       await this.shifts.recordChanges(
         actor.companyId,
         assigned.map((a) => ({
@@ -307,7 +305,7 @@ export class ShiftsService {
     await this.shifts.cancel(actor.companyId, id);
 
     const assigned = activeAssignments(before);
-    if (before.periodStatus === 'PUBLISHED') {
+    if (isVisibleToEmployees(before.periodStatus)) {
       await this.shifts.recordChanges(
         actor.companyId,
         assigned.map((a) => ({
@@ -366,8 +364,8 @@ export class ShiftsService {
       actor.userId,
     );
     const after = await this.get(actor.companyId, id);
-    if (after.periodStatus === 'PUBLISHED')
-      await this.announceAssignments(actor, after, added);
+    if (isVisibleToEmployees(after.periodStatus))
+      await this.announceNewShifts(actor, [after], added);
     await this.record(actor, id, 'shift.employees_assigned', undefined, {
       employeeIds: added.map((a) => a.employeeId),
     });
@@ -387,7 +385,7 @@ export class ShiftsService {
       employeeId,
     );
 
-    if (shift.periodStatus === 'PUBLISHED') {
+    if (isVisibleToEmployees(shift.periodStatus)) {
       await this.shifts.recordChanges(actor.companyId, [
         {
           shiftAssignmentId: assignmentId,
@@ -560,29 +558,65 @@ export class ShiftsService {
     return unavailable;
   }
 
-  private async announceAssignments(
+  /**
+   * Registra la asignación en el historial de cada turno y avisa a cada empleado UNA sola
+   * vez, aunque reciba varios turnos (ej. la semana completa): "Tienes 5 turnos nuevos".
+   * `onlyAdded` limita a las asignaciones recién hechas (al agregar gente a un turno).
+   */
+  private async announceNewShifts(
     actor: Actor,
-    shift: ShiftView,
-    added: { assignmentId: string; employeeId: string }[],
+    shifts: ShiftView[],
+    onlyAdded?: { assignmentId: string; employeeId: string }[],
   ) {
-    if (added.length === 0) return;
-    const changes: ShiftChangeRecord[] = added.map((a) => ({
-      shiftAssignmentId: a.assignmentId,
-      type: 'REASSIGNMENT',
-      toEmployeeId: a.employeeId,
-      newStartsAt: shift.startsAt,
-      newEndsAt: shift.endsAt,
-      actorUserId: actor.userId,
-    }));
+    const byEmployee = new Map<string, ShiftView[]>();
+    const changes: ShiftChangeRecord[] = [];
+    for (const shift of shifts) {
+      const added =
+        onlyAdded ??
+        activeAssignments(shift).map((a) => ({
+          assignmentId: a.id,
+          employeeId: a.employeeId,
+        }));
+      for (const a of added) {
+        changes.push({
+          shiftAssignmentId: a.assignmentId,
+          type: 'REASSIGNMENT',
+          toEmployeeId: a.employeeId,
+          newStartsAt: shift.startsAt,
+          newEndsAt: shift.endsAt,
+          actorUserId: actor.userId,
+        });
+        byEmployee.set(a.employeeId, [
+          ...(byEmployee.get(a.employeeId) ?? []),
+          shift,
+        ]);
+      }
+    }
+    if (changes.length === 0) return;
     await this.shifts.recordChanges(actor.companyId, changes);
-    await this.notify(
-      actor.companyId,
-      added.map((a) => a.employeeId),
-      {
-        title: 'Tienes un nuevo turno',
-        body: `${describeShift(shift.startsAt, shift.endsAt, shift.timeZone)} en ${shift.storeName}.`,
-        shiftId: shift.id,
-      },
+
+    const users = await this.shifts.findUserIdsByEmployee(actor.companyId, [
+      ...byEmployee.keys(),
+    ]);
+    await this.notifier.notify(
+      [...byEmployee].flatMap(([employeeId, list]) => {
+        const userId = users.get(employeeId);
+        if (!userId) return []; // sin acceso a la app: no hay a quién avisar
+        const message = newShiftsMessage(list);
+        return [
+          {
+            companyId: actor.companyId,
+            userId,
+            type: 'SHIFT_CHANGED' as const,
+            title: message.title,
+            body: message.body,
+            data:
+              list.length === 1
+                ? { shiftId: list[0].id }
+                : { shiftIds: list.map((s) => s.id) },
+          },
+        ];
+      }),
     );
   }
 
@@ -624,6 +658,32 @@ export class ShiftsService {
       after,
     });
   }
+}
+
+/** "Tienes un nuevo turno" o, para varios, un resumen ordenado por fecha. */
+export function newShiftsMessage(shifts: ShiftView[]): {
+  title: string;
+  body: string;
+} {
+  const sorted = [...shifts].sort(
+    (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
+  );
+  if (sorted.length === 1) {
+    const s = sorted[0];
+    return {
+      title: 'Tienes un nuevo turno',
+      body: `${describeShift(s.startsAt, s.endsAt, s.timeZone)} en ${s.storeName}.`,
+    };
+  }
+  const SHOWN = 3;
+  const lines = sorted
+    .slice(0, SHOWN)
+    .map((s) => describeShift(s.startsAt, s.endsAt, s.timeZone));
+  const rest = sorted.length - SHOWN;
+  return {
+    title: `Tienes ${sorted.length} turnos nuevos`,
+    body: `${lines.join(' · ')}${rest > 0 ? ` y ${rest} más` : ''}. Revísalos en Turnos.`,
+  };
 }
 
 function activeAssignments(shift: ShiftView) {

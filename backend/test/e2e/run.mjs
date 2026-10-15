@@ -119,6 +119,8 @@ async function runSuite(name) {
   const file = join(SUITES_DIR, `${name}.e2e.cjs`);
   const log = join(tmpdir(), `e2e-${name}.log`);
   const started = Date.now();
+  // Contraseña aleatoria del superadmin para esta suite (el seed exige 12+ caracteres)
+  const platformAdminPassword = `E2e-${randomBytes(32).toString('hex')}`;
 
   execSync(RESET_CMD, {
     cwd: ROOT,
@@ -126,7 +128,7 @@ async function runSuite(name) {
       ...process.env,
       DATABASE_URL: DB_URL,
       SEED_DEMO_SCENARIOS: 'false',
-      SEED_PLATFORM_ADMIN_PASSWORD: `E2e-${randomBytes(32).toString('hex')}`,
+      SEED_PLATFORM_ADMIN_PASSWORD: platformAdminPassword,
     },
     stdio: 'pipe',
     shell: true,
@@ -147,6 +149,7 @@ async function runSuite(name) {
         E2E_BASE_URL: BASE_URL,
         E2E_DATABASE_URL: DB_URL,
         E2E_APP_LOG: log,
+        E2E_PLATFORM_ADMIN_PASSWORD: platformAdminPassword,
         E2E_RATE_PAUSE_MS: '0',
       },
       encoding: 'utf8',
