@@ -11,6 +11,11 @@ const API = 'https://exp.host/--/api/v2/push';
 const SEND_CHUNK = 100; // máximo por petición de envío
 const RECEIPT_CHUNK = 1_000; // máximo por consulta de recibos
 const EXPO_TOKEN = /^Expo(nent)?PushToken\[.+\]$/;
+/**
+ * Canal de Android que crea la app móvil (mobile/src/services/push.ts): suena, vibra y
+ * aparece arriba de la pantalla. Deben coincidir; si la app no lo tiene, Android usa uno genérico.
+ */
+export const ANDROID_CHANNEL_ID = 'avisos';
 
 type Ticket =
   | { status: 'ok'; id: string }
@@ -57,6 +62,7 @@ export class ExpoPushSender extends PushSender {
         data: message.data ?? {},
         sound: 'default',
         priority: 'high',
+        channelId: ANDROID_CHANNEL_ID,
       }));
       const { data } = await this.post<{ data: Ticket[] }>('/send', body);
       chunk.forEach((token, j) => {
