@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Actor, AuditLog } from '../../../shared/application/audit-log';
+import { Notifier } from '../../../shared/application/notifier';
+import { utcToLocal } from '../../../shared/domain/zoned-time';
 import { clockWindow } from '../../shifts/domain/shift.rules';
-import { InvalidAdjustmentError } from '../domain/attendance.errors';
+import {
+  AttendanceNotInProgressError,
+  InvalidAdjustmentError,
+} from '../domain/attendance.errors';
 import { AttendanceRepository } from '../domain/attendance.repository';
 import { computeWorkMetrics, lateMinutesFor } from '../domain/attendance.rules';
 import type { AttendanceStatus, WorkMetrics } from '../domain/attendance.types';
@@ -23,7 +28,44 @@ export class AttendanceReviewService {
     private readonly repo: AttendanceRepository,
     private readonly queries: AttendanceQueriesService,
     private readonly audit: AuditLog,
+    private readonly notifier: Notifier,
   ) {}
+
+  /**
+   * El administrador termina la jornada de quien está trabajando (ej. lo envía a casa
+   * temprano). Es un ajuste con salida = AHORA según el servidor: queda el evento
+   * MANUAL_ADJUSTMENT con el motivo, se recalculan los minutos y se avisa al empleado.
+   */
+  async endShift(actor: Actor, id: string, reason: string) {
+    const current = await this.queries.detail(actor.companyId, id);
+    if (!current.clockInAt || current.clockOutAt)
+      throw new AttendanceNotInProgressError();
+
+    const clockOutAt = new Date();
+    const detail = await this.adjust(actor, id, {
+      clockOutAt,
+      reason: `Jornada terminada por el administrador: ${reason}`,
+    });
+
+    const userId = await this.repo.findEmployeeUserId(
+      actor.companyId,
+      current.employee.id,
+    );
+    if (userId) {
+      const at = utcToLocal(clockOutAt, current.shift.timeZone).time;
+      await this.notifier.notify([
+        {
+          companyId: actor.companyId,
+          userId,
+          type: 'SHIFT_CHANGED',
+          title: 'Tu jornada fue terminada',
+          body: `El administrador registró tu salida a las ${at}. Motivo: ${reason}`,
+          data: { attendanceId: id },
+        },
+      ]);
+    }
+    return detail;
+  }
 
   /**
    * Corrección manual (olvido de marcación, falla de la app...). No borra nada:

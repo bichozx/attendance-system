@@ -16,6 +16,15 @@ export class AttendanceNotFoundError extends DomainError {
   }
 }
 
+/** Solo se puede terminar una jornada que está en curso (con entrada y sin salida). */
+export class AttendanceNotInProgressError extends DomainError {
+  readonly code = 'ATTENDANCE_NOT_IN_PROGRESS';
+  readonly kind = 'CONFLICT';
+  constructor() {
+    super('La jornada no está en curso: no tiene entrada o ya tiene salida');
+  }
+}
+
 export class InvalidAdjustmentError extends DomainError {
   readonly code = 'INVALID_ADJUSTMENT';
   readonly kind = 'VALIDATION';

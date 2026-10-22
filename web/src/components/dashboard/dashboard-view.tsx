@@ -5,13 +5,15 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { Empty, Notice, PageHeader, Select, Spinner } from '@/components/ui';
-import { api, call, errorMessage } from '@/lib/api/client';
+import { api, call, errorMessage, type Schemas } from '@/lib/api/client';
 import { duration, longDate } from '@/lib/time';
 import { DayTimeline } from './day-timeline';
+import { EndShiftDialog } from './end-shift-dialog';
 import { STATUS, STATUS_ORDER, type LiveStatus } from './status';
 
-export function DashboardView({ canFilterStores }: { canFilterStores: boolean }) {
+export function DashboardView({ canFilterStores, canEndShift = false }: { canFilterStores: boolean; canEndShift?: boolean }) {
   const [storeId, setStoreId] = useState('');
+  const [ending, setEnding] = useState<Schemas['DashboardPersonDto'] | null>(null);
   const [filter, setFilter] = useState<LiveStatus | null>(null);
 
   const dashboard = useQuery({
@@ -83,7 +85,7 @@ export function DashboardView({ canFilterStores }: { canFilterStores: boolean })
                 Cuando se publiquen turnos para este día, aquí verás quién está, quién falta y quién debe la salida.
               </Empty>
             ) : (
-              <DayTimeline people={people} day={d.date} timeZone={d.timeZone} now={new Date(d.serverTime)} />
+              <DayTimeline people={people} day={d.date} timeZone={d.timeZone} now={new Date(d.serverTime)} onEndShift={canEndShift ? setEnding : undefined} />
             )}
           </section>
 
@@ -135,6 +137,7 @@ export function DashboardView({ canFilterStores }: { canFilterStores: boolean })
           </aside>
         </div>
       ) : null}
+      {d ? <EndShiftDialog person={ending} timeZone={d.timeZone} onClose={() => setEnding(null)} /> : null}
     </>
   );
 }

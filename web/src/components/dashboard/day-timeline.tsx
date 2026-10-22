@@ -15,7 +15,20 @@ const pct = (minutes: number) => `${(minutes / 1440) * 100}%`;
  * La jornada de un vistazo: cada persona es una barra del color de su estado.
  * La línea vertical es "ahora"; la marca blanca, la hora en que marcó entrada.
  */
-export function DayTimeline({ people, day, timeZone, now }: { people: Person[]; day: string; timeZone: string; now: Date | null }) {
+export function DayTimeline({
+  people,
+  day,
+  timeZone,
+  now,
+  onEndShift,
+}: {
+  people: Person[];
+  day: string;
+  timeZone: string;
+  now: Date | null;
+  /** Si llega, cada persona "En turno" muestra el botón para terminar su jornada. */
+  onEndShift?: (person: Person) => void;
+}) {
   const nowMin = now ? minuteOfDay(now, timeZone, day) : null;
   const showNow = nowMin !== null && nowMin > 0 && nowMin < 1440;
 
@@ -71,6 +84,15 @@ export function DayTimeline({ people, day, timeZone, now }: { people: Person[]; 
               <div className="px-4 py-2.5" role="cell">
                 <p className="truncate font-semibold">{p.name}</p>
                 <p className="truncate text-sm text-muted">{p.storeName}</p>
+                {onEndShift && status === 'WORKING' && p.attendanceId ? (
+                  <button
+                    type="button"
+                    onClick={() => onEndShift(p)}
+                    aria-label={`Terminar la jornada de ${p.name}`}
+                    className="mt-0.5 text-sm font-semibold text-brand underline-offset-4 hover:underline">
+                    Terminar jornada
+                  </button>
+                ) : null}
               </div>
               <div className="relative mr-4" role="cell" aria-label={label} title={label}>
                 {HOURS.slice(1, -1).map((h) => (

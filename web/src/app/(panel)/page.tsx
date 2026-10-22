@@ -8,5 +8,5 @@ export const metadata = { title: 'Hoy' };
 export default async function TodayPage() {
   const session = await getSession();
   if (!can(session, 'reports.read')) redirect('/aprobaciones');
-  return <DashboardView canFilterStores={can(session, 'stores.read')} />;
+  return <DashboardView canFilterStores={can(session, 'stores.read')} canEndShift={can(session, 'attendance.adjust')} />;
 }

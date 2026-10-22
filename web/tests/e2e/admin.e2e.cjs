@@ -112,7 +112,8 @@ async function apiAs(email = 'admin@demo.local', password = 'Demo123!') {
       const pd = page.getByRole('dialog', { name: 'Nuevo periodo' });
       await pd.getByRole('button', { name: 'Crear periodo' }).click();
       await page.getByText(/creado en borrador/).waitFor();
-      await page.getByText(new RegExp(`^${Number(mondayOf(next).slice(8))} – `)).waitFor({ timeout: 5000 });
+      // "26 – 1 nov" o, si la semana cruza de mes, "26 de oct – 1 de nov"
+      await page.getByText(new RegExp(`^${Number(mondayOf(next).slice(8))}( de)?( [a-zé]+\\.?)? – `)).waitFor({ timeout: 5000 });
       expect('Tras crearlo, la semana salta al inicio del periodo', true);
       await page.goto(`${B}/turnos?sede=${store.id}&semana=${monday}`);
       await page.getByRole('heading', { name: 'Periodos' }).waitFor();
@@ -319,8 +320,9 @@ async function apiAs(email = 'admin@demo.local', password = 'Demo123!') {
       expect('El empleado queda con el cargo nuevo', (await A('GET', `/employees/${emp.id}`)).position?.name === 'Barista');
       await page.goto(B + '/empleados');
       await page.getByLabel('Filtrar por cargo').selectOption({ label: 'Barista' });
-      await page.getByRole('link', { name: `${emp.firstName} ${emp.lastName}`, exact: true }).waitFor();
-      expect('Filtrar la lista por cargo', (await page.locator('tbody tr').count()) === 1);
+      // La lista conserva el resultado anterior mientras llega el filtrado: esperar a que quede 1
+      const filtered = await page.waitForFunction(() => document.querySelectorAll('tbody tr').length === 1, null, { timeout: 8000 }).then(() => true, () => false);
+      expect('Filtrar la lista por cargo', filtered && (await page.getByRole('link', { name: `${emp.firstName} ${emp.lastName}`, exact: true }).isVisible()));
     });
   }
 
@@ -355,7 +357,8 @@ async function apiAs(email = 'admin@demo.local', password = 'Demo123!') {
 
       const sa = await newPage();
       current = sa;
-      await login(sa, 'superadmin@asistencia.local', 'Cambiar123!');
+      // La del seed de la base de prueba (SEED_PLATFORM_ADMIN_PASSWORD, 12+ caracteres)
+      await login(sa, 'superadmin@asistencia.local', process.env.PLATFORM_ADMIN_PASSWORD ?? 'Cambiar12345!');
       await sa.waitForURL((u) => u.pathname === '/plataforma');
       expect('El superadministrador sin empresa llega a la consola', await sa.getByRole('heading', { name: 'Empresas' }).isVisible());
       await sa.getByRole('link', { name: 'Empresa Demo' }).waitFor();
