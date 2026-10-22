@@ -11,7 +11,9 @@ ARG PNPM_VERSION=10.26.2
 FROM node:${NODE_VERSION}-slim AS base
 ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true NEXT_TELEMETRY_DISABLED=1
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# pnpm se instala con npm y no con corepack: Node dejó de incluir corepack desde la v25
+# y sus versiones viejas fallan cuando npm rota las llaves de firma.
+RUN npm install -g pnpm@${PNPM_VERSION} && pnpm --version
 WORKDIR /app
 
 # --- Dependencias (capa cacheada mientras no cambie el lockfile) ---
