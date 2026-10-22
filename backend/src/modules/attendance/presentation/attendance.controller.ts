@@ -32,6 +32,7 @@ import {
   AttendanceDetailResponseDto,
   AttendanceResponseDto,
   ListAttendanceQueryDto,
+  EndShiftDto,
   ReviewAttendanceDto,
 } from './dto/attendance.dto';
 
@@ -116,6 +117,30 @@ export class AttendanceController {
       reason: dto.reason,
     });
     return AttendancePresenter.detail(detail);
+  }
+
+  @Post(':id/end')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('attendance.adjust')
+  @ApiOperation({
+    summary: 'Terminar ahora la jornada de quien está trabajando',
+    description:
+      'Registra la salida con la hora actual del servidor, recalcula los minutos, deja ' +
+      'el motivo en el historial (evento MANUAL_ADJUSTMENT) y avisa al empleado.',
+  })
+  @ApiOkResponse({ type: AttendanceDetailResponseDto })
+  @ApiErrors(400, {
+    404: 'ATTENDANCE_NOT_FOUND',
+    409: 'ATTENDANCE_NOT_IN_PROGRESS',
+  })
+  async endShift(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EndShiftDto,
+  ) {
+    return AttendancePresenter.detail(
+      await this.review.endShift(actor, id, dto.reason),
+    );
   }
 
   @Post(':id/review')

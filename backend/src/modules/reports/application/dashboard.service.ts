@@ -53,6 +53,8 @@ export class DashboardService {
       return {
         employeeId: r.employee.id,
         employeeCode: r.employee.code,
+        /** Para acciones sobre la jornada (ej. terminarla). null si aún no marcó. */
+        attendanceId: r.attendance?.id ?? null,
         name: `${r.employee.firstName} ${r.employee.lastName}`,
         storeName: r.store.name,
         startsAt: r.startsAt,

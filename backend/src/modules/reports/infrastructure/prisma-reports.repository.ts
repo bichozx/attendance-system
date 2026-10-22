@@ -68,7 +68,12 @@ export class PrismaReportsRepository extends ReportsRepository {
           select: { id: true, code: true, firstName: true, lastName: true },
         },
         attendance: {
-          select: { status: true, clockInAt: true, lateMinutes: true },
+          select: {
+            id: true,
+            status: true,
+            clockInAt: true,
+            lateMinutes: true,
+          },
         },
         shift: {
           select: {

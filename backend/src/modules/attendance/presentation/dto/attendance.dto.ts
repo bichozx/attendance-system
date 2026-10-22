@@ -165,6 +165,18 @@ export class AdjustAttendanceDto {
   reason: string;
 }
 
+export class EndShiftDto {
+  /**
+   * Obligatorio: queda en el historial y se le muestra al empleado.
+   * @example "Baja venta, se envía a casa"
+   */
+  @Transform(trim)
+  @IsString()
+  @MinLength(5)
+  @MaxLength(200)
+  reason: string;
+}
+
 export class ReviewAttendanceDto {
   @IsOptional()
   @Transform(trim)

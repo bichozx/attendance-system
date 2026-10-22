@@ -9,6 +9,10 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { DispatchService } from './dispatch.service';
 import { ReceiptsService } from './receipts.service';
 import { RemindersService } from './reminders.service';
+import {
+  isTransientDbError,
+  shortDbError,
+} from '../../../shared/infrastructure/prisma/prisma-errors';
 
 /**
  * Procesos periódicos (segundos; 0 = desactivado):
@@ -69,7 +73,13 @@ export class NotificationsJobs
       try {
         await work();
       } catch (error) {
-        this.logger.error(`Falló el proceso ${name}`, error as Error);
+        if (isTransientDbError(error)) {
+          this.logger.warn(
+            `Proceso ${name} aplazado: la base no respondió a tiempo (${shortDbError(error)}). Se reintenta en el próximo ciclo.`,
+          );
+        } else {
+          this.logger.error(`Falló el proceso ${name}`, error as Error);
+        }
       } finally {
         this.running.delete(name);
       }

@@ -12,6 +12,10 @@ import {
   DEFAULT_RETENTION,
   RetentionPolicy,
 } from '../domain/retention';
+import {
+  isTransientDbError,
+  shortDbError,
+} from '../../../shared/infrastructure/prisma/prisma-errors';
 
 const JOB = 'maintenance';
 
@@ -147,7 +151,7 @@ export class MaintenanceJob implements OnApplicationBootstrap, OnModuleDestroy {
             resetTokensDeleted: tokens.count,
           };
         },
-        { timeout: 120_000 },
+        { maxWait: 15_000, timeout: 120_000 },
       );
       if (
         result.ran &&
@@ -157,7 +161,13 @@ export class MaintenanceJob implements OnApplicationBootstrap, OnModuleDestroy {
       }
       return result;
     } catch (error) {
-      this.logger.error('Falló el mantenimiento', error as Error);
+      if (isTransientDbError(error)) {
+        this.logger.warn(
+          `Mantenimiento aplazado: la base no respondió a tiempo (${shortDbError(error)}). Se reintenta en el próximo ciclo.`,
+        );
+      } else {
+        this.logger.error('Falló el mantenimiento', error as Error);
+      }
       return null;
     } finally {
       this.running = false;

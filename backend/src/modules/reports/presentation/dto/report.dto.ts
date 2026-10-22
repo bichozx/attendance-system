@@ -124,6 +124,8 @@ export class LiveCountersDto {
 export class DashboardPersonDto {
   employeeId: string;
   employeeCode: string;
+  /** Jornada registrada (null si aún no marca entrada). */
+  attendanceId: string | null;
   /** @example "Carlos Pérez" */
   name: string;
   storeName: string;

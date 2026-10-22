@@ -14,6 +14,7 @@ export interface LiveInput {
   endsAt: Date;
   lateToleranceMinutes: number;
   attendance: {
+    id?: string;
     status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'INCOMPLETE' | 'ABSENT';
     clockInAt: Date | null;
     lateMinutes: number;

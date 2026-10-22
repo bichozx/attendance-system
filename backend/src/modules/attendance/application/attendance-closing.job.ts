@@ -11,6 +11,10 @@ import { SHIFT_LIMITS } from '../../shifts/domain/shift.rules';
 import { describeDay } from '../../shifts/application/shift-time';
 import { utcToLocal } from '../../../shared/domain/zoned-time';
 import { AttendanceRepository } from '../domain/attendance.repository';
+import {
+  isTransientDbError,
+  shortDbError,
+} from '../../../shared/infrastructure/prisma/prisma-errors';
 
 const JOB_NAME = 'attendance-closing';
 
@@ -77,7 +81,13 @@ export class AttendanceClosingJob
       }
       return result;
     } catch (error) {
-      this.logger.error('Falló el cierre de jornadas', error as Error);
+      if (isTransientDbError(error)) {
+        this.logger.warn(
+          `Cierre de jornadas aplazado: la base no respondió a tiempo (${shortDbError(error)}). Se reintenta en el próximo ciclo.`,
+        );
+      } else {
+        this.logger.error('Falló el cierre de jornadas', error as Error);
+      }
       return null;
     }
   }

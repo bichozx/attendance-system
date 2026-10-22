@@ -193,6 +193,11 @@ export abstract class AttendanceRepository {
     id: string,
     adj: Adjustment,
   ): Promise<void>;
+  /** Usuario de la app del empleado (null si no tiene acceso). */
+  abstract findEmployeeUserId(
+    companyId: string,
+    employeeId: string,
+  ): Promise<string | null>;
   abstract markReviewed(
     companyId: string,
     id: string,

@@ -494,6 +494,17 @@ export class PrismaAttendanceRepository extends AttendanceRepository {
     });
   }
 
+  async findEmployeeUserId(
+    companyId: string,
+    employeeId: string,
+  ): Promise<string | null> {
+    const row = await this.prisma.employee.findFirst({
+      where: { id: employeeId, companyId },
+      select: { userId: true },
+    });
+    return row?.userId ?? null;
+  }
+
   async markReviewed(
     companyId: string,
     id: string,
@@ -597,7 +608,7 @@ export class PrismaAttendanceRepository extends AttendanceRepository {
           })),
         };
       },
-      { timeout: 60_000 },
+      { maxWait: 15_000, timeout: 60_000 },
     );
   }
 }

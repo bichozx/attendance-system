@@ -1286,6 +1286,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/attendance/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Terminar ahora la jornada de quien está trabajando
+         * @description Registra la salida con la hora actual del servidor, recalcula los minutos, deja el motivo en el historial (evento MANUAL_ADJUSTMENT) y avisa al empleado.
+         */
+        post: operations["AttendanceController_endShift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/attendance/{id}/review": {
         parameters: {
             query?: never;
@@ -3174,6 +3194,13 @@ export interface components {
              */
             reason: string;
         };
+        EndShiftDto: {
+            /**
+             * @description Obligatorio: queda en el historial y se le muestra al empleado.
+             * @example Baja venta, se envía a casa
+             */
+            reason: string;
+        };
         ReviewAttendanceDto: {
             notes?: string;
         };
@@ -3423,6 +3450,8 @@ export interface components {
         DashboardPersonDto: {
             employeeId: string;
             employeeCode: string;
+            /** @description Jornada registrada (null si aún no marca entrada). */
+            attendanceId: string | null;
             /** @example Carlos Pérez */
             name: string;
             storeName: string;
@@ -8704,6 +8733,76 @@ export interface operations {
             };
             /** @description ATTENDANCE_NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    AttendanceController_endShift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndShiftDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceDetailResponseDto"];
+                };
+            };
+            /** @description Datos inválidos (VALIDATION_ERROR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description No autenticado o token inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Sin permisos para esta acción */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description ATTENDANCE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description ATTENDANCE_NOT_IN_PROGRESS */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
